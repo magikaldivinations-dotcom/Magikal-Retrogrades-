@@ -1,0 +1,2 @@
+# Magikal-Retrogrades-
+Astrology app
