@@ -416,7 +416,7 @@ private fun moonSnapshot(): MoonSnapshot {
     val illuminatedPercent = (moonIllumination(Body.Moon, now).phaseFraction * 100.0).roundToInt().coerceIn(0, 100)
     val previousNewMoon = searchMoonPhase(0.0, now, -40.0)
     val ageDays = previousNewMoon?.let { (nowMillis - it.toMillisecondsSince1970()) / 86_400_000.0 } ?: 0.0
-    val upcoming = moonQuartersAfter(now).take(4).map { event ->
+    val upcoming = moonQuartersAfter(now).toList().take(4).map { event ->
         val name = listOf("New Moon", "First Quarter", "Full Moon", "Last Quarter").getOrElse(event.quarter) { "Moon phase" }
         MoonPhaseEvent(name, event.time.toMillisecondsSince1970())
     }
@@ -772,7 +772,7 @@ private fun WheelGraphic(modifier: Modifier = Modifier, onSelect: (Int) -> Unit)
     }
 }
 
-private data class JournalEntry(val tag: String, val timestamp: String, val text: String)
+private data class JournalEntry(val tag: String, val timestamp: String, val text: String); private fun loadEntries(prefs: android.content.SharedPreferences): List<JournalEntry> = runCatching { val array = JSONArray(prefs.getString("entries", "[]") ?: "[]"); (0 until array.length()).map { i -> val item = array.getJSONObject(i); JournalEntry(item.optString("tag", "General"), item.optString("timestamp", ""), item.optString("text", "")) } }.getOrDefault(emptyList()); private fun saveEntries(prefs: android.content.SharedPreferences, entries: List<JournalEntry>) { val array = JSONArray(); entries.forEach { entry -> array.put(JSONObject().put("tag", entry.tag).put("timestamp", entry.timestamp).put("text", entry.text)) }; prefs.edit().putString("entries", array.toString()).apply() }
 
 @Composable
 private fun JournalPage() {
