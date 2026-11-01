@@ -153,7 +153,13 @@ const knownRetrogradeEvents=[
  ["Jupiter","2026-12-13T00:59:00Z","2027-04-13T02:13:00Z"],["Mars","2027-01-10T13:01:00Z","2027-04-01T14:10:00Z"],["Mercury","2027-02-09T17:36:00Z","2027-03-03T12:35:00Z"],["Pluto","2027-05-08T12:15:00Z","2027-10-18T03:51:00Z"],["Mercury","2027-06-10T18:19:00Z","2027-07-04T19:40:00Z"],["Neptune","2027-07-09T22:50:00Z","2027-12-15T09:43:00Z"],["Saturn","2027-08-09T17:53:00Z","2027-12-24T02:50:00Z"],["Uranus","2027-09-15T09:15:00Z","2028-02-12T23:40:00Z"],["Mercury","2027-10-07T14:40:00Z","2027-10-28T14:10:00Z"],
  ["Jupiter","2028-01-12T08:48:00Z","2028-05-13T19:58:00Z"],["Mercury","2028-01-24T11:03:00Z","2028-02-14T12:39:00Z"],["Pluto","2028-05-09T08:48:00Z","2028-10-19T04:20:00Z"],["Venus","2028-05-10T23:02:00Z","2028-06-22T22:13:00Z"],["Mercury","2028-05-21T08:39:00Z","2028-06-14T06:07:00Z"],["Neptune","2028-07-11T13:18:00Z","2028-12-16T20:55:00Z"],["Saturn","2028-08-22T22:17:00Z","2029-01-05T12:32:00Z"],["Uranus","2028-09-19T00:06:00Z","2029-02-16T10:50:00Z"],["Mercury","2028-09-19T16:31:00Z","2028-10-11T10:30:00Z"]
 ].map(([planet,start,end])=>({planet,start:Date.parse(start),end:Date.parse(end),zodiac:({Mercury:"Scorpio",Venus:"Scorpio → Libra",Saturn:"Aries",Uranus:"Gemini",Neptune:"Aries",Chiron:"Taurus → Aries"})[planet]&&Date.parse(start)<Date.parse("2027-01-01")?({Mercury:"Scorpio",Venus:"Scorpio → Libra",Saturn:"Aries",Uranus:"Gemini",Neptune:"Aries",Chiron:"Taurus → Aries"})[planet]:""}));
-function mergeRetrogradeEvents(events){const merged=knownRetrogradeEvents.map(k=>{const live=events.find(e=>e.planet===k.planet&&Math.abs(k.start-e.start)<3*86400000);return live?{...k,...live,zodiac:live.zodiac||k.zodiac}:k});const extra=events.filter(e=>!knownRetrogradeEvents.some(k=>k.planet===e.planet&&Math.abs(k.start-e.start)<3*86400000));return [...merged,...extra].sort((a,b)=>a.start-b.start)}
+// Live intervals replace matching fallback stations even when their start dates differ by weeks.
+function mergeRetrogradeEvents(events){
+ const matches=(known,live)=>known.planet===live.planet&&(Math.abs(known.start-live.start)<3*86400000||(live.start<known.end&&known.start<live.end));
+ const merged=knownRetrogradeEvents.map(known=>{const live=events.find(event=>matches(known,event));return live?{...known,...live,zodiac:live.zodiac||known.zodiac}:known});
+ const extra=events.filter(event=>!knownRetrogradeEvents.some(known=>matches(known,event)));
+ return [...merged,...extra].filter((event,index,all)=>all.findIndex(other=>other.planet===event.planet&&other.start===event.start&&other.end===event.end)===index).sort((a,b)=>a.start-b.start)
+}
 const ephemerisCacheKey="magikal-retrogrades-jpl-v4",ephemerisTtl=12*60*60*1000;let retrogradeEvents=knownRetrogradeEvents,trackerIsLoading=false,trackerFeedAvailable=true,trackerRequestId=0;
 const localZone=Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC";
 let displayZone=localZone;
