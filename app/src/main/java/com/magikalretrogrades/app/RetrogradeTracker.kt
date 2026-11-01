@@ -169,7 +169,7 @@ internal object RetrogradeTracker {
             if (radiusSquared == 0.0) return@mapNotNull null
             val longitudeRate = Math.toDegrees((x * vy - y * vx) / radiusSquared)
             Position(jd, longitudeRate, (Math.toDegrees(kotlin.math.atan2(y, x)) + 360.0) % 360.0)
-        }.sortedBy { it.jd }
+        }.sortedBy { it.jd }.toList()
         if (positions.size < 3) throw IllegalStateException("Too few ephemeris samples were returned.")
 
         val events = mutableListOf<RetrogradeEvent>()
