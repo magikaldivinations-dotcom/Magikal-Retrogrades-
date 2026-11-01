@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -9,7 +11,7 @@ val releaseSigningEnabled = !uploadKeystoreBase64.isNullOrBlank()
 val uploadKeystoreFile = layout.buildDirectory.file("upload-key.jks").get().asFile
 if (releaseSigningEnabled) {
     uploadKeystoreFile.parentFile.mkdirs()
-    uploadKeystoreFile.writeBytes(java.util.Base64.getDecoder().decode(uploadKeystoreBase64))
+    uploadKeystoreFile.writeBytes(Base64.getDecoder().decode(uploadKeystoreBase64))
 }
 
 android {
