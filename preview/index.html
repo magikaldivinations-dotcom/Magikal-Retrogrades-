@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" href="./app-icon-192x192.png">
 <link rel="manifest" href="./site.webmanifest">
 <title>Magikal Retrogrades — Preview</title>
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js" defer></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@400;500;600;700&display=swap');
 :root{--ink:#100817;--deep:#17101f;--panel:#21172e;--panel2:#2b1d3c;--line:#493650;--violet:#bd8aff;--lilac:#ecdfff;--muted:#b9adc6;--gold:#e7c778;--pink:#dd9de8}
@@ -18,7 +19,7 @@ body{padding:24px 16px 40px}.preview-label{max-width:1100px;margin:0 auto 14px;c
 header{padding:15px 20px 11px;display:flex;flex-direction:column;align-items:center;gap:2px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#1b1225,#100817)}
 .brandline{display:flex;align-items:center;justify-content:center;gap:8px;width:100%}.brandmark{width:44px;height:44px;flex:none}.brand-name{font:600 30px 'Cormorant Garamond',serif;color:#f0e4ff;line-height:1}.brand{min-width:0}.brand-subtitle{color:var(--gold);font:700 9px 'DM Sans',sans-serif;letter-spacing:.2em;margin-top:4px}.triple{width:82px;height:38px;flex:none}.header-note{display:none}
 main{flex:1;min-height:570px;padding:22px clamp(16px,3.8vw,42px) 28px;overflow:auto;max-height:calc(100vh - 190px);scrollbar-color:#6f4a8b transparent}
-.bottom{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);gap:3px;background:#17101f;border-top:1px solid #503b5f;padding:9px 14px max(10px,env(safe-area-inset-bottom));z-index:5}
+.bottom{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);gap:3px;background:#17101f;border-top:1px solid #503b5f;padding:9px 14px max(10px,env(safe-area-inset-bottom));z-index:5}
 .nav{border:0;background:transparent;color:#a99bb7;padding:9px 5px 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:5px;font:600 11px 'DM Sans',sans-serif;cursor:pointer;transition:.18s}
 .nav .navicon{font-size:20px;line-height:1}.nav.active{color:#f1e4ff;background:#3a2850;box-shadow:inset 0 0 0 1px #8561a1}.nav:hover{color:white}
 .page{display:none;animation:fade .2s ease}.page.active{display:block}@keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -40,7 +41,10 @@ footer{font-size:10px;color:#887a95;padding:12px 24px 13px;text-align:center;bor
 .zone-picker{display:flex;flex-direction:column;gap:5px;min-width:180px;max-width:100%}.zone-picker>span{color:var(--gold);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.zone-picker select{width:100%;max-width:260px;min-height:43px;padding:9px 34px 9px 12px;border:1px solid #654c72;border-radius:13px;background:#30213f;color:#eadbff;font:600 12px 'DM Sans',sans-serif}.zone-picker select:focus{outline:2px solid #b782ff;outline-offset:2px}@media(max-width:500px){.zone-picker{width:100%;min-width:0}.zone-picker select{max-width:none}}
 
 .location-help{margin-top:8px;padding:11px 12px;border:1px solid #765c84;border-radius:12px;background:#180f23;color:#d8c9e5;font-size:11px;line-height:1.55}.location-help[hidden]{display:none}
-</style>
+
+ .natal-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.natal-form .full{grid-column:1/-1}.natal-form label{display:block;color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}.natal-help{font-size:10px;line-height:1.55;color:var(--muted)}.natal-options{display:grid;gap:7px;margin-top:9px}.place-option{width:100%;text-align:left;border:1px solid #574263;background:#180f23;color:var(--lilac);border-radius:12px;padding:10px 12px;cursor:pointer}.place-option:hover,.place-option.selected{border-color:var(--gold);background:#30213f}.natal-result{margin-top:16px}.natal-wheel{display:block;width:min(100%,360px);margin:auto}.natal-placements{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.natal-placement{background:#180f23;border:1px solid #493650;border-radius:12px;padding:10px;font-size:12px}.natal-placement b{color:var(--gold)}.natal-aspects{display:grid;gap:7px}.natal-aspect{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #493650;padding:7px 0;font-size:11px}.natal-msg{margin-top:10px;color:#f0d4a6;font-size:12px;line-height:1.5}.natal-angle{font-size:12px;color:var(--gold)}
+ @media(max-width:520px){.natal-form{grid-template-columns:1fr}.natal-form .full{grid-column:auto}.natal-placements{grid-template-columns:1fr}.bottom{padding-left:5px;padding-right:5px}.nav{font-size:9px;padding-left:2px;padding-right:2px}.nav .navicon{font-size:18px}}
+ </style>
 </head>
 <body>
 <div class="device">
@@ -99,6 +103,21 @@ footer{font-size:10px;color:#887a95;padding:12px 24px 13px;text-align:center;bor
   <p class="tiny wide">Preview notes are saved in this browser only. The Android journal is stored on the device and is not synced to an account.</p>
  </div>
 </section>
+<section id="natal" class="page">
+ <div class="intro"><div class="eyebrow">✦ Your cosmic blueprint</div><h1>Natal birth chart</h1><p>Generate a free birth chart from your birth date, time, and birthplace. Choose the matching place so the chart can use its coordinates and historical time zone.</p></div>
+ <article class="card wide">
+  <div class="tag">Birth details</div>
+  <div class="natal-form" style="margin-top:12px">
+   <div><label for="natal-date">Birth date</label><input class="field" id="natal-date" type="date" autocomplete="bday"></div>
+   <div><label for="natal-time">Birth time</label><input class="field" id="natal-time" type="time"></div>
+   <div class="full"><label><input id="natal-time-unknown" type="checkbox" style="width:auto;accent-color:#bd8aff;margin-right:7px"> I don’t know my birth time</label><div class="natal-help">Without a known time, planetary positions use local noon. The Ascendant, Midheaven, and houses are omitted because they depend on the exact time.</div></div>
+   <div class="full"><label for="natal-place">Birth city or place</label><input class="field" id="natal-place" type="text" placeholder="Example: Beaumont, Texas" autocomplete="off"><button type="button" class="btn" id="natal-find" style="margin-top:9px">Find birthplace</button><div id="natal-choices" class="natal-options" aria-live="polite"></div></div>
+   <div class="full"><button type="button" class="btn" id="natal-generate" style="width:100%;background:linear-gradient(115deg,#f0d995,#d9b55e)">Generate free natal chart</button><div class="natal-help" style="margin-top:9px">Birth date and time are calculated on this device. Place search sends only the place name to Open-Meteo’s geocoder to find coordinates and an IANA time zone.</div></div>
+  </div>
+  <div id="natal-message" class="natal-msg" role="status" aria-live="polite"></div>
+ </article>
+ <div id="natal-result" class="natal-result"></div>
+</section>
 </main>
 <div class="bottom-triple"><svg viewBox="0 0 220 90" role="img" aria-label="Triple moon goddess symbol"><path d="M15 7C80 7 80 83 15 83M15 7C50 20 50 70 15 83M205 7C140 7 140 83 205 83M205 7C170 20 170 70 205 83" fill="none" stroke="#ecdfff" stroke-width="3" stroke-linecap="round"/><circle cx="110" cy="45" r="38" fill="none" stroke="#ecdfff" stroke-width="3"/><circle cx="122" cy="34" r="2.5" fill="#ecdfff"/></svg></div>
 <nav class="bottom" aria-label="Main navigation">
@@ -106,6 +125,7 @@ footer{font-size:10px;color:#887a95;padding:12px 24px 13px;text-align:center;bor
  <button type="button" class="nav" data-page="moon"><span class="navicon">☾</span><span>Moon phases</span></button>
  <button type="button" class="nav" data-page="sabbats"><span class="navicon">✺</span><span>Sabbats</span></button>
  <button type="button" class="nav" data-page="journal"><span class="navicon">✎</span><span>Journal</span></button>
+ <button type="button" class="nav" data-page="natal"><span class="navicon">✦</span><span>Natal chart</span></button>
 </nav>
 <footer>Magikal Retrogrades · A reflective spiritual guide · Preview build</footer>
 </div>
@@ -258,6 +278,63 @@ function renderEntries(){const entries=loadEntries(),box=document.querySelector(
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 document.querySelector("#saveEntry").onclick=()=>{const text=document.querySelector("#journalText").value.trim();if(!text)return;const tag=cat.value==="General"?"General":cat.value+" · "+target.value;const a=loadEntries();a.unshift({tag,text,date:new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date())});localStorage.setItem("magikal-retrogrades-journal",JSON.stringify(a));document.querySelector("#journalText").value="";renderEntries()};
 renderEntries();
+
+// Free natal chart: geocentric tropical positions from Astronomy Engine.
+(()=>{
+ const signs=['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+ const signGlyphs=['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+ const bodies=[['Sun','☉','Sun'],['Moon','☾','Moon'],['Mercury','☿','Mercury'],['Venus','♀','Venus'],['Mars','♂','Mars'],['Jupiter','♃','Jupiter'],['Saturn','♄','Saturn'],['Uranus','♅','Uranus'],['Neptune','♆','Neptune'],['Pluto','♇','Pluto']];
+ const $=id=>document.getElementById(id), dateEl=$('natal-date'),timeEl=$('natal-time'),unknownEl=$('natal-time-unknown'),placeEl=$('natal-place'),choicesEl=$('natal-choices'),messageEl=$('natal-message'),resultEl=$('natal-result');
+ let selected=null, candidates=[];
+ const pos=x=>((x%360)+360)%360;
+ const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ unknownEl.addEventListener('change',()=>{timeEl.disabled=unknownEl.checked;if(unknownEl.checked)timeEl.value='';});
+ placeEl.addEventListener('input',()=>{selected=null;choicesEl.innerHTML='';resultEl.innerHTML='';});
+ $('natal-find').addEventListener('click',async()=>{
+  const q=placeEl.value.trim();messageEl.textContent='';choicesEl.innerHTML='';selected=null;
+  if(q.length<2){messageEl.textContent='Enter at least two letters of a birthplace.';return;}
+  const button=$('natal-find');button.disabled=true;button.textContent='Searching…';
+  try{const u='https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=6&language=en&format=json';const r=await fetch(u);if(!r.ok)throw Error('Place search is unavailable right now. Try again in a moment.');const d=await r.json();candidates=(d.results||[]).filter(x=>x.timezone&&Number.isFinite(x.latitude)&&Number.isFinite(x.longitude));
+   if(!candidates.length){messageEl.textContent='No matching places with a usable time zone were found. Try adding a region or country.';return;}
+   choicesEl.innerHTML=candidates.map((x,i)=>'<button type="button" class="place-option" data-place="'+i+'">'+safe([x.name,x.admin1,x.country].filter(Boolean).join(', '))+'<br><span class="natal-help">'+safe(x.timezone)+'</span></button>').join('');
+   choicesEl.querySelectorAll('[data-place]').forEach(b=>b.addEventListener('click',()=>{selected=candidates[Number(b.dataset.place)];placeEl.value=[selected.name,selected.admin1,selected.country].filter(Boolean).join(', ');choicesEl.innerHTML='';messageEl.textContent='Selected: '+[selected.name,selected.admin1,selected.country].filter(Boolean).join(', ')+' · '+selected.timezone;}));
+  }catch(e){messageEl.textContent=e.message||'Could not search for that place.';}finally{button.disabled=false;button.textContent='Find birthplace';}
+ });
+ function wallParts(epoch,zone){const f=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});const a=Object.fromEntries(f.formatToParts(new Date(epoch)).map(p=>[p.type,p.value]));return [+a.year,+a.month,+a.day,+a.hour,+a.minute,+a.second];}
+ function resolveWallTime(date,time,zone){
+  const [y,m,d]=date.split('-').map(Number),[hh,mm]=time.split(':').map(Number),wanted=Date.UTC(y,m-1,d,hh,mm,0);let offsets=new Set();
+  for(let h=-36;h<=36;h+=3){const t=wanted+h*3600000,p=wallParts(t,zone),asUtc=Date.UTC(p[0],p[1]-1,p[2],p[3],p[4],p[5]);offsets.add(asUtc-t);}
+  const matches=[...offsets].map(o=>wanted-o).filter(t=>{const p=wallParts(t,zone);return p[0]===y&&p[1]===m&&p[2]===d&&p[3]===hh&&p[4]===mm;}).sort((a,b)=>a-b);
+  if(!matches.length)throw Error('That local birth time did not occur because of a clock change. Choose another time or mark the time unknown.');return {instant:new Date(matches[0]),ambiguous:matches.length>1};
+ }
+ function eclipticLongitude(body,date){const v=Astronomy.GeoVector(body,date,true);return pos(Astronomy.Ecliptic(v).elon);}
+ function angles(date,latitude,longitude){const eps=23.439291111;const theta=pos(Astronomy.SiderealTime(date)*15+longitude),t=theta*Math.PI/180,e=eps*Math.PI/180,lat=Math.max(-89.8,Math.min(89.8,latitude))*Math.PI/180;const asc=pos(Math.atan2(-Math.cos(t),Math.sin(e)*Math.tan(lat)+Math.cos(e)*Math.sin(t))*180/Math.PI),mc=pos(Math.atan2(Math.sin(t),Math.cos(t)*Math.cos(e))*180/Math.PI);return {asc,mc};}
+ function degText(x){const d=Math.floor(x),m=Math.round((x-d)*60);return d+'°'+String(m===60?0:m).padStart(2,'0')+'′';}
+ function point(lon,asc,r,cx,cy){const a=(180+lon-asc)*Math.PI/180;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];}
+ function makeWheel(placements,asc){const cx=180,cy=180,outer=165,ring=126,anchor=asc??0;let s='<svg class="natal-wheel" viewBox="0 0 360 360" role="img" aria-label="Natal chart wheel"><circle cx="180" cy="180" r="165" fill="#150e1d" stroke="#765b89"/><circle cx="180" cy="180" r="126" fill="none" stroke="#765b89"/><circle cx="180" cy="180" r="89" fill="none" stroke="#493650"/>';
+  for(let i=0;i<12;i++){const lon=(asc===null?0:Math.floor(anchor/30)*30)+i*30,p1=point(lon,anchor,outer,cx,cy),p2=point(lon,anchor,ring,cx,cy),mid=point(lon+15,anchor,145,cx,cy);s+='<line x1="'+p1[0]+'" y1="'+p1[1]+'" x2="'+p2[0]+'" y2="'+p2[1]+'" stroke="#765b89"/><text x="'+mid[0]+'" y="'+mid[1]+'" fill="#e7c778" font-size="11" text-anchor="middle" dominant-baseline="middle">'+signGlyphs[(Math.floor((asc===null?0:anchor)/30)+i)%12]+'</text>';}
+  placements.forEach((p,i)=>{const [x,y]=point(p.longitude,anchor,83+(i%2)*18,cx,cy);s+='<circle cx="'+x+'" cy="'+y+'" r="3" fill="#bd8aff"/><text x="'+x+'" y="'+(y-5)+'" fill="#ecdfff" font-size="12" text-anchor="middle">'+p.glyph+'</text>';});
+  for(let i=0;i<placements.length;i++)for(let j=i+1;j<placements.length;j++){const a=placements[i],b=placements[j],diff=Math.min(Math.abs(a.longitude-b.longitude),360-Math.abs(a.longitude-b.longitude));if([0,60,90,120,180].some(n=>Math.abs(diff-n)<3)){const p1=point(a.longitude,anchor,78,cx,cy),p2=point(b.longitude,anchor,78,cx,cy);s+='<line x1="'+p1[0]+'" y1="'+p1[1]+'" x2="'+p2[0]+'" y2="'+p2[1]+'" stroke="#86c9c2" stroke-opacity=".32"/>';}}
+  return s+'</svg>';}
+ function aspectList(placements){const types=[[0,'Conjunction'],[60,'Sextile'],[90,'Square'],[120,'Trine'],[180,'Opposition']],out=[];for(let i=0;i<placements.length;i++)for(let j=i+1;j<placements.length;j++){const a=placements[i],b=placements[j],d=Math.min(Math.abs(a.longitude-b.longitude),360-Math.abs(a.longitude-b.longitude)),lim=(a.name==='Sun'||a.name==='Moon'||b.name==='Sun'||b.name==='Moon')?7:5;let best=types.map(([v,n])=>({n,o:Math.abs(d-v)})).sort((x,y)=>x.o-y.o)[0];if(best.o<=lim)out.push({...best,a,b});}return out.sort((a,b)=>a.o-b.o);}
+ $('natal-generate').addEventListener('click',()=>{
+  messageEl.textContent='';resultEl.innerHTML='';if(!window.Astronomy){messageEl.textContent='The astronomy engine did not load. Check your connection and try again.';return;}
+  if(!dateEl.value||!selected||(!unknownEl.checked&&!timeEl.value)){messageEl.textContent='Choose your birth date, birth time (or mark it unknown), and a matching birthplace.';return;}
+  try{const wallTime=unknownEl.checked?'12:00':timeEl.value,resolved=resolveWallTime(dateEl.value,wallTime,selected.timezone),when=resolved.instant;
+   const placements=bodies.map(([name,glyph,body])=>{const lon=body==='Moon'?pos(Astronomy.EclipticGeoMoon(when).lon):eclipticLongitude(body,when),sign=Math.floor(lon/30);return {name,glyph,longitude:lon,sign,within:lon%30,house:null};});
+   const ang=unknownEl.checked?null:angles(when,selected.latitude,selected.longitude),ascSign=ang?Math.floor(ang.asc/30):null;if(ascSign!==null)placements.forEach(p=>p.house=(p.sign-ascSign+12)%12+1);
+   const aspects=aspectList(placements),dateLabel=new Intl.DateTimeFormat(undefined,{dateStyle:'long',timeStyle:'short',timeZone:selected.timezone}).format(when);
+   let html='<article class="card wide"><div class="tag">Your chart</div><h2 style="margin-top:5px">'+safe(dateLabel)+'</h2><p class="tiny">'+safe([selected.name,selected.admin1,selected.country].filter(Boolean).join(', '))+' · Tropical zodiac · Whole Sign houses</p>';
+   if(resolved.ambiguous)html+='<p class="natal-help">This birthplace had two possible UTC offsets at that local time; the earlier occurrence was used.</p>';
+   if(unknownEl.checked)html+='<p class="natal-help">Birth time unknown: planetary positions use local noon. Ascendant, Midheaven, and houses are omitted because they depend on the exact time.</p>';
+   else html+='<p class="natal-angle">Ascendant: '+signs[Math.floor(ang.asc/30)]+' '+degText(ang.asc%30)+' &nbsp; · &nbsp; Midheaven: '+signs[Math.floor(ang.mc/30)]+' '+degText(ang.mc%30)+'</p>';
+   html+=makeWheel(placements,ang?.asc??null)+'</article><article class="card wide" style="margin-top:12px"><div class="tag">Planet placements</div><div class="natal-placements" style="margin-top:10px">'+placements.map(p=>'<div class="natal-placement"><b>'+p.glyph+' '+p.name+'</b><br>'+signGlyphs[p.sign]+' '+signs[p.sign]+' '+degText(p.within)+(p.house?' · House '+p.house:'')+'</div>').join('')+'</div></article>';
+   if(aspects.length)html+='<article class="card wide" style="margin-top:12px"><div class="tag">Major aspects</div><div class="natal-aspects" style="margin-top:8px">'+aspects.slice(0,20).map(a=>'<div class="natal-aspect"><span>'+a.a.glyph+' '+a.a.name+' · '+a.n+' · '+a.b.glyph+' '+a.b.name+'</span><span>'+a.o.toFixed(1)+'° orb</span></div>').join('')+'</div></article>';
+   html+='<p class="natal-help" style="margin:10px 4px">Planet positions use Astronomy Engine’s geocentric ephemeris. The library reports planetary position accuracy of about ±1 arcminute. Houses use the Whole Sign system.</p>';resultEl.innerHTML=html;
+  }catch(e){messageEl.textContent=e.message||'The chart could not be calculated. Check your birth details and selected place.';}
+ });
+})();
+
 </script>
 </body>
 </html>
