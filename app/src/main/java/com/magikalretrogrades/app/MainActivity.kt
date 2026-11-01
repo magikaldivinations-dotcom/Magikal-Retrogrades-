@@ -901,3 +901,22 @@ private fun InfoLine(title: String, body: String) {
         Text(body, color = Lilac, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 3.dp))
     }
 }
+
+
+private fun loadEntries(prefs: android.content.SharedPreferences): List<JournalEntry> = try {
+    val stored = JSONArray(prefs.getString("entries", "[]") ?: "[]")
+    List(stored.length()) { index ->
+        val item = stored.getJSONObject(index)
+        JournalEntry(item.optString("tag"), item.optString("timestamp"), item.optString("text"))
+    }
+} catch (_: Exception) {
+    emptyList()
+}
+
+private fun saveEntries(prefs: android.content.SharedPreferences, entries: List<JournalEntry>) {
+    val stored = JSONArray()
+    entries.forEach { entry ->
+        stored.put(JSONObject().put("tag", entry.tag).put("timestamp", entry.timestamp).put("text", entry.text))
+    }
+    prefs.edit().putString("entries", stored.toString()).apply()
+}
