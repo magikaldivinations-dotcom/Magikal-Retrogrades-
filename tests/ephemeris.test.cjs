@@ -28,3 +28,69 @@ test('rejects missing or malformed ephemeris samples', () => {
   assert.throws(() => eventsFromCsv('Mercury', 'No matches found.'), /No ephemeris/);
   assert.throws(() => eventsFromCsv('Mercury', '$$SOE\nnot,data\n$$EOE'), /Too few/);
 });
+
+const mergeSource = html.slice(html.indexOf('const knownRetrogradeEvents='), html.indexOf('const ephemerisCacheKey='));
+const { mergeRetrogradeEvents, knownRetrogradeEvents } = vm.runInNewContext(
+  mergeSource + ';({mergeRetrogradeEvents,knownRetrogradeEvents})'
+);
+const chironLive = {
+  planet: 'Chiron', start: Date.parse('2026-08-03T00:00:00Z'),
+  end: Date.parse('2027-01-06T12:00:00Z'), zodiac: 'Taurus → Aries'
+};
+test('live Chiron replaces the overlapping September fallback with one current interval', () => {
+  const merged = mergeRetrogradeEvents([chironLive]);
+  const chiron = merged.filter(event => event.planet === 'Chiron');
+  assert.equal(chiron.length, 1);
+  assert.deepEqual({ ...chiron[0] }, chironLive);
+  const now = Date.parse('2026-11-01T00:00:00Z');
+  assert.equal(merged.filter(event => event.planet === 'Chiron' && event.start <= now && now < event.end).length, 1);
+  assert.deepEqual(merged.filter(event => event.planet !== 'Chiron'), knownRetrogradeEvents.filter(event => event.planet !== 'Chiron').sort((a, b) => a.start - b.start));
+});
+test('missing Chiron live results retain fallback during another planet refresh', () => {
+  const mercury = { ...knownRetrogradeEvents.find(event => event.planet === 'Mercury'), zodiac: 'Live Mercury' };
+  const merged = mergeRetrogradeEvents([mercury]);
+  assert.deepEqual(merged.find(event => event.planet === 'Chiron'), knownRetrogradeEvents.find(event => event.planet === 'Chiron'));
+  assert.equal(merged.find(event => event.planet === 'Mercury').zodiac, 'Live Mercury');
+});
+test('keeps disjoint live events and the existing near-start matching and zodiac fallback', () => {
+  const known = knownRetrogradeEvents.find(event => event.planet === 'Mercury');
+  const near = { ...known, start: known.start + 86400000, end: known.end + 86400000, zodiac: '' };
+  const extra = { planet: 'Chiron', start: Date.parse('2028-07-01'), end: Date.parse('2028-12-01'), zodiac: 'Aries' };
+  const merged = mergeRetrogradeEvents([near, extra]);
+  assert.equal(merged.filter(event => event.planet === 'Mercury').length, knownRetrogradeEvents.filter(event => event.planet === 'Mercury').length);
+  assert.equal(merged.find(event => event.start === near.start).zodiac, known.zodiac);
+  assert.ok(merged.some(event => event.start === extra.start));
+});
+test('merging the saved feed again does not reintroduce the Chiron fallback', () => {
+  const merged = mergeRetrogradeEvents([chironLive]);
+  assert.deepEqual(mergeRetrogradeEvents(merged), merged);
+});
+
+for (const chironFails of [false, true]) test(`live refresh ${chironFails ? 'keeps Chiron fallback on failure' : 'shows one live Chiron interval on success'}`, async () => {
+  const loadSource = html.slice(html.indexOf('async function loadRetrogradeFeed('), html.indexOf('document.querySelector("#refreshTracker").addEventListener'));
+  const elements = new Map();
+  const context = vm.createContext({
+    document: { querySelector: selector => { if (!elements.has(selector)) elements.set(selector, {}); return elements.get(selector); } },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    eventDate: () => 'today', renderTracker: () => {}, localZone: 'UTC',
+    horizonsBodies: [{ name: 'Mercury' }, { name: 'Chiron' }],
+    requestPlanetEvents: async body => {
+      if (body.name === 'Chiron') {
+        if (chironFails) throw new Error('NASA/JPL unavailable');
+        return [chironLive];
+      }
+      return [{ ...knownRetrogradeEvents.find(event => event.planet === 'Mercury'), zodiac: 'Live Mercury' }];
+    }
+  });
+  vm.runInContext(mergeSource + `
+    const ephemerisCacheKey='test',ephemerisTtl=43200000;
+    let retrogradeEvents=knownRetrogradeEvents,trackerIsLoading=false,trackerFeedAvailable=true,trackerRequestId=0;
+    ` + loadSource, context);
+  await vm.runInContext('loadRetrogradeFeed(true)', context);
+  const events = vm.runInContext('retrogradeEvents', context);
+  const chiron = events.filter(event => event.planet === 'Chiron');
+  assert.equal(chiron.length, 1);
+  assert.equal(chiron[0].start, chironFails ? Date.parse('2026-09-17T00:00:00Z') : chironLive.start);
+  assert.equal(events.find(event => event.planet === 'Mercury').zodiac, 'Live Mercury');
+  assert.match(elements.get('#trackerMessage').textContent, chironFails ? /Chiron could not refresh/ : /NASA\/JPL dates updated/);
+});

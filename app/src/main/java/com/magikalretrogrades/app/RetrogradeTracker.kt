@@ -68,11 +68,16 @@ internal object RetrogradeTracker {
         RetrogradeEvent(planet, Instant.parse(start).toEpochMilli(), Instant.parse(end).toEpochMilli(), zodiacSign)
 
     private fun mergeKnownEvents(events: List<RetrogradeEvent>): List<RetrogradeEvent> {
+        fun matches(known: RetrogradeEvent, live: RetrogradeEvent): Boolean =
+            known.planet == live.planet && (
+                kotlin.math.abs(known.startUtcMillis - live.startUtcMillis) < 3L * 86_400_000L ||
+                    (live.startUtcMillis < known.endUtcMillis && known.startUtcMillis < live.endUtcMillis)
+                )
         val matched = knownEvents.map { known ->
-            events.firstOrNull { live -> live.planet == known.planet && kotlin.math.abs(known.startUtcMillis - live.startUtcMillis) < 3L * 86_400_000L }
+            events.firstOrNull { live -> matches(known, live) }
                 ?.let { live -> live.copy(zodiacSign = live.zodiacSign.ifBlank { known.zodiacSign }) } ?: known
         }
-        val additional = events.filterNot { live -> knownEvents.any { known -> known.planet == live.planet && kotlin.math.abs(known.startUtcMillis - live.startUtcMillis) < 3L * 86_400_000L } }
+        val additional = events.filterNot { live -> knownEvents.any { known -> matches(known, live) } }
         return (matched + additional).distinctBy { Triple(it.planet, it.startUtcMillis, it.endUtcMillis) }.sortedBy { it.startUtcMillis }
     }
 
