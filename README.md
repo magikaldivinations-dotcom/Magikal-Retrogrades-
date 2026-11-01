@@ -8,14 +8,14 @@ Standalone Android Studio project for the new Magikal Retrogrades app. It uses i
 - Persistent cursive “Magikal Divinations” branding with the supplied orbit-star motif and a triple moon goddess mark on every page.
 - Individually illustrated planet cards, spiritual meanings, retrograde reflection prompts, rituals, intention spells, cautions, and crystal correspondences.
 - A retrograde tracker using geocentric planetary vectors from NASA/JPL Horizons. It checks Mercury through Pluto, caches results for 12 hours, shows each current or upcoming station's local start/end time, and provides live countdowns for its start and end plus manual refresh.
-- A guide to all eight moon phases, phase-specific prompts, current estimated illumination, and an approximate next phase time.
+- A guide to all eight moon phases with phase-specific prompts, current ephemeris-based illumination, lunar age, and precise next-quarter times.
 - A free natal chart calculated on the device from birth date, exact local time, and a selected birthplace. It shows tropical Sun-through-Pluto placements, Ascendant, Midheaven, Whole Sign houses, a chart wheel, and major aspects. Unknown birth time is handled explicitly by omitting time-dependent angles and houses.
 - Interactive eight-sabbat Wheel of the Year with clear, large tap targets for each sabbat and Northern/Southern Hemisphere date sets.
 - Journal entries tagged to a planet, moon phase, sabbat, or general topic. Entries are stored in app-private device storage; Android backup is disabled.
 
 ## Data and accuracy notes
 
-Planet positions are geocentric and therefore the retrograde event is the same instant worldwide; the app converts the event time to the device's time zone and does not request precise location. Station times are estimates interpolated from two-day JPL samples. The moon phase and next phase time use the average synodic month and are approximate. The app requests planetary ephemeris data from NASA/JPL Horizons but does not send journal entries or location.
+Planet positions are geocentric and therefore the retrograde event is the same instant worldwide; the app converts the event time to the device's time zone and does not request precise location. Station times are estimates interpolated from two-day JPL samples. Moon phase names and illumination use Astronomy Engine Sun–Moon geometry, while quarter events and lunar age are derived from the ephemeris. These calculations are geocentric and shared worldwide; event times are converted to the selected time zone. The app requests planetary ephemeris data from NASA/JPL Horizons but does not send journal entries or location.
 
 Natal chart planetary positions use the MIT-licensed Astronomy Engine library. Birth date and time are calculated locally; place search sends only the typed city/place query to Open-Meteo's geocoding API, which returns coordinates and an IANA time zone. Location data is based on GeoNames. Whole Sign houses are used. Chiron is not included in this first natal-chart version.
 
