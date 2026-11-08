@@ -256,8 +256,7 @@ private fun RetrogradesPage() {
     var refreshKey by remember { mutableIntStateOf(0) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    var displayZoneId by remember { mutableStateOf(getDisplayZone(context).id) }
-    val displayZone = runCatching { java.time.ZoneId.of(displayZoneId) }.getOrDefault(java.time.ZoneId.systemDefault())
+    val displayZone = java.time.ZoneId.systemDefault()
     LaunchedEffect(Unit) {
         while (true) {
             nowMillis = System.currentTimeMillis()
@@ -278,8 +277,7 @@ private fun RetrogradesPage() {
     }
     PageColumn {
         SectionIntro("Planetary retrogrades", "Explore each planet's symbolism and reflective practices.")
-        DisplayZonePicker(displayZoneId) { zone -> displayZoneId = zone; saveDisplayZone(context, zone) }
-        InfoCard("LIVE PLANET TRACKER", "Dates are calculated from geocentric planetary motion. Station instants are shared worldwide; displayed times use ${displayZone.id}.")
+        InfoCard("LIVE PLANET TRACKER", "Retrograde station instants are shared worldwide. Dates and countdowns are displayed in your device's local time.")
         when {
             loading -> InfoCard("UPDATING THE SKY", "Fetching planetary positions from NASA/JPL Horizons…")
             error != null -> InfoCard("TRACKING TEMPORARILY UNAVAILABLE", "${error}. Tap Refresh dates to try again. Your guide content is still available offline.")
