@@ -12,6 +12,8 @@ import android.os.Build
 import android.os.Looper
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -83,8 +85,10 @@ private val Gold = Color(0xFFE8C77A)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(16, 11, 24)
-        window.navigationBarColor = android.graphics.Color.rgb(16, 11, 24)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         setContent { MagikalApp() }
     }
 }
@@ -139,7 +143,7 @@ private fun MagikalApp() {
 
 @Composable
 private fun AppHeader() {
-    Column(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 16.dp, vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth().background(Ink).statusBarsPadding().padding(horizontal = 16.dp, vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             BrandStar(Modifier.size(40.dp))
             Column(Modifier.padding(start = 7.dp), horizontalAlignment = Alignment.Start) {
