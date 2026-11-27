@@ -66,6 +66,12 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.sin
+import com.google.android.play.core.appupdate.AppUpdateInfo
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.appupdate.AppUpdateType
+import com.google.android.play.core.install.model.UpdateAvailability
 import kotlin.math.roundToInt
 import io.github.cosinekitty.astronomy.Body
 import io.github.cosinekitty.astronomy.Time
@@ -83,13 +89,106 @@ private val Muted = Color(0xFFB9AFC4)
 private val Gold = Color(0xFFE8C77A)
 
 class MainActivity : ComponentActivity() {
+    private lateinit var appUpdateManager: AppUpdateManager
+    private var updateRequired by mutableStateOf(false)
+    private var pendingUpdateInfo: AppUpdateInfo? = null
+    private var updateCheckInFlight = false
+    private var updateFlowActive = false
+
+    private val updateResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) {
+        updateFlowActive = false
+        pendingUpdateInfo = null
+        checkForRequiredUpdate()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
-        setContent { MagikalApp() }
+        appUpdateManager = AppUpdateManagerFactory.create(this)
+        setContent { MagikalApp(forceUpdate = updateRequired, onForceUpdate = ::startRequiredUpdate) }
+        checkForRequiredUpdate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::appUpdateManager.isInitialized && !updateFlowActive) checkForRequiredUpdate()
+    }
+
+    private fun checkForRequiredUpdate() {
+        if (!::appUpdateManager.isInitialized || updateCheckInFlight) return
+        updateCheckInFlight = true
+        appUpdateManager.appUpdateInfo
+            .addOnSuccessListener { info ->
+                updateCheckInFlight = false
+                when (info.updateAvailability()) {
+                    UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS -> {
+                        updateRequired = true
+                        pendingUpdateInfo = info
+                        startImmediateUpdate(info)
+                    }
+                    UpdateAvailability.UPDATE_AVAILABLE -> {
+                        updateRequired = true
+                        pendingUpdateInfo = info
+                    }
+                    else -> {
+                        updateRequired = false
+                        pendingUpdateInfo = null
+                    }
+                }
+            }
+            .addOnFailureListener {
+                updateCheckInFlight = false
+                // Play may be offline or unavailable; don't strand a user on a transient check failure.
+                updateRequired = false
+                pendingUpdateInfo = null
+            }
+    }
+
+    private fun startRequiredUpdate() {
+        val info = pendingUpdateInfo
+        if (info == null) {
+            checkForRequiredUpdate()
+            return
+        }
+        pendingUpdateInfo = null
+        startImmediateUpdate(info)
+    }
+
+    private fun startImmediateUpdate(info: AppUpdateInfo) {
+        if (!info.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+            openPlayStoreListing()
+            return
+        }
+        try {
+            updateFlowActive = true
+            appUpdateManager.startUpdateFlowForResult(
+                info,
+                updateResultLauncher,
+                AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+            )
+        } catch (_: Exception) {
+            updateFlowActive = false
+            openPlayStoreListing()
+        }
+    }
+
+    private fun openPlayStoreListing() {
+        val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+            .setPackage("com.android.vending")
+        try {
+            startActivity(marketIntent)
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+            } catch (_: Exception) {
+                // Keep the required-update dialog visible if neither Play Store link can open.
+            }
+        }
     }
 }
 
@@ -98,7 +197,7 @@ private enum class Page(val label: String, val icon: String) {
 }
 
 @Composable
-private fun MagikalApp() {
+private fun MagikalApp(forceUpdate: Boolean = false, onForceUpdate: () -> Unit = {}) {
     var page by remember { mutableStateOf(Page.Retrogrades) }
     val scheme = darkColorScheme(
         primary = Violet, onPrimary = Ink, secondary = Gold, background = Ink,
@@ -137,6 +236,20 @@ private fun MagikalApp() {
                     Page.Chart -> NatalChartPage()
                 }
             }
+        }
+        if (forceUpdate) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Update required", color = Lilac, fontWeight = FontWeight.Bold) },
+                text = { Text("A new version is ready. Update from Google Play to continue using Magikal Retrogrades.", color = Muted) },
+                confirmButton = {
+                    Button(
+                        onClick = onForceUpdate,
+                        colors = ButtonDefaults.buttonColors(containerColor = Violet, contentColor = Ink)
+                    ) { Text("Update now", fontWeight = FontWeight.Bold) }
+                },
+                containerColor = Panel
+            )
         }
     }
 }
