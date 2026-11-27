@@ -22,8 +22,8 @@ internal data class TrackerPlanet(val name: String, val horizonsId: String)
 /** Geocentric apparent motion from NASA/JPL Horizons, cached on the device for 12 hours. */
 internal object RetrogradeTracker {
     private const val ENDPOINT = "https://ssd.jpl.nasa.gov/api/horizons.api"
-    private const val PREFS = "retrograde_ephemeris_cache_v2"
-    private const val CACHE_KEY = "feed_v2"
+    private const val PREFS = "retrograde_ephemeris_cache_v3"
+    private const val CACHE_KEY = "feed_v3"
     private const val CACHE_TIME_KEY = "fetched_at"
     private const val CACHE_TTL_MILLIS = 12L * 60L * 60L * 1000L
     // Covers the full duration of even the long outer-planet retrograde periods,
@@ -86,7 +86,7 @@ internal object RetrogradeTracker {
         val cachedAt = prefs.getLong(CACHE_TIME_KEY, 0L)
         val cached = decodeFeed(prefs.getString(CACHE_KEY, null), cachedAt)
         if (!forceRefresh && cached != null && System.currentTimeMillis() - cachedAt < CACHE_TTL_MILLIS) {
-            return@withContext cached.copy(events = mergeKnownEvents(cached.events))
+            return@withContext cached
         }
 
         val start = LocalDate.now(ZoneId.of("UTC")).minusDays(LOOKBACK_DAYS)
@@ -105,11 +105,11 @@ internal object RetrogradeTracker {
         val allEvents = results.flatMap { it.first }
         val warnings = results.mapNotNull { it.second }
         if (allEvents.isEmpty()) {
-            if (cached != null) return@withContext cached.copy(events = mergeKnownEvents(cached.events), warnings = listOf("Live refresh could not complete. Showing the last saved station dates."))
+            if (cached != null) return@withContext cached.copy(warnings = listOf("Live refresh could not complete. Showing the last saved live station dates."))
             return@withContext fallbackFeed(listOf("NASA/JPL live data could not be reached. Showing the built-in station calendar; verify dates with a current ephemeris before relying on them."))
         }
         val fetchedAt = System.currentTimeMillis()
-        val feed = RetrogradeFeed(mergeKnownEvents(allEvents), fetchedAt, warnings.map { it.substringBefore(":") + ": live data temporarily unavailable." })
+        val feed = RetrogradeFeed(allEvents, fetchedAt, warnings.map { it.substringBefore(":") + ": live data temporarily unavailable." })
         prefs.edit().putLong(CACHE_TIME_KEY, fetchedAt).putString(CACHE_KEY, encodeFeed(feed)).apply()
         feed
     }
