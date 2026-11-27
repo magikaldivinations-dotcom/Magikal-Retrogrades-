@@ -385,7 +385,7 @@ private fun DisplayZonePicker(selectedId: String, onSelect: (String) -> Unit) {
 @Composable
 private fun RetrogradesPage() {
     var openPlanet by remember { mutableStateOf<String?>(null) }
-    var feed by remember { mutableStateOf(RetrogradeTracker.fallbackFeed()) }
+    var feed by remember { mutableStateOf<RetrogradeFeed?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
@@ -412,7 +412,7 @@ private fun RetrogradesPage() {
     }
     PageColumn {
         SectionIntro("Planetary retrogrades", "Explore each planet's symbolism and reflective practices.")
-        InfoCard("LIVE PLANET TRACKER", "Retrograde station instants are shared worldwide. Dates and countdowns are displayed in your device's local time.")
+        InfoCard("LIVE PLANET TRACKER", "Geocentric positions come from NASA/JPL Horizons when the app refreshes. Results are cached for up to 12 hours. Station times are estimates interpolated from two-day samples and are shown in your device's local time.")
         when {
             loading -> InfoCard("UPDATING THE SKY", "Fetching planetary positions from NASA/JPL Horizons…")
             error != null -> InfoCard("TRACKING TEMPORARILY UNAVAILABLE", "${error}. Tap Refresh dates to try again. Your guide content is still available offline.")
@@ -421,7 +421,7 @@ private fun RetrogradesPage() {
                     InfoCard("BUILT-IN STATION CALENDAR", "Live NASA/JPL data is unavailable. These preloaded station dates are a guide; check a current ephemeris for confirmation.")
                 } else {
                     val updated = formatLocalEventTime(feed!!.fetchedAtMillis, displayZone)
-                    InfoCard("LIVE DATA UPDATED", "Last refreshed $updated. Station times are estimated from two-day ephemeris samples.")
+                    InfoCard("NASA/JPL DATA UPDATED", "Latest snapshot: $updated. The live forecast uses two-day position samples with interpolated station times. Only live results are shown when the feed responds; some planets can be missing if their request fails.")
                 }
                 if (feed!!.warnings.isNotEmpty()) InfoCard("LIVE DATA NOTICE", feed!!.warnings.joinToString(" · "))
             }
@@ -431,7 +431,7 @@ private fun RetrogradesPage() {
         when {
             activeNow.isNotEmpty() -> InfoCard("CURRENT RETROGRADES", activeNow.joinToString("\n") { "${it.planet}${if (it.zodiacSign.isNotBlank()) " in ${it.zodiacSign}" else ""} · ends ${formatLocalEventTime(it.endUtcMillis, displayZone)} · ${formatCountdown(it.endUtcMillis - nowMillis)} remaining" })
             upcomingNow.isNotEmpty() -> InfoCard("NO RETROGRADES RIGHT NOW · NEXT", upcomingNow.take(3).joinToString("\n") { "${it.planet}${if (it.zodiacSign.isNotBlank()) " in ${it.zodiacSign}" else ""} · starts ${formatLocalEventTime(it.startUtcMillis, displayZone)} · in ${formatCountdown(it.startUtcMillis - nowMillis)}" })
-            loading -> InfoCard("CURRENT RETROGRADES", "Updating station dates in ${displayZone.id}. The built-in calendar keeps countdowns visible while data refreshes.")
+            loading -> InfoCard("CURRENT RETROGRADES", "Checking current planetary positions. Live results will appear when the refresh completes.")
             error != null -> InfoCard("TRACKING TEMPORARILY UNAVAILABLE", "${error}. Built-in current and upcoming dates remain visible.")
             feed != null -> InfoCard("NO CURRENT OR UPCOMING RETROGRADES", "No station was found in the available forecast.")
         }
