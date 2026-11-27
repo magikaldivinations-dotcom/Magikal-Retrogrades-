@@ -16,7 +16,7 @@ import java.time.ZoneId
 import javax.net.ssl.HttpsURLConnection
 
 internal data class RetrogradeEvent(val planet: String, val startUtcMillis: Long, val endUtcMillis: Long, val zodiacSign: String = "")
-internal data class RetrogradeFeed(val events: List<RetrogradeEvent>, val fetchedAtMillis: Long, val warnings: List<String>)
+internal data class RetrogradeFeed(val events: List<RetrogradeEvent>, val fetchedAtMillis: Long, val warnings: List<String>, val builtInCalendar: Boolean = false)
 internal data class TrackerPlanet(val name: String, val horizonsId: String)
 
 /** Geocentric apparent motion from NASA/JPL Horizons, cached on the device for 12 hours. */
@@ -33,7 +33,7 @@ internal object RetrogradeTracker {
 
     /** Curated station calendar keeps active dates and countdowns visible when the live feed is unreachable. */
     fun fallbackFeed(warnings: List<String> = listOf("Built-in station calendar; event times are converted to your selected time zone.")): RetrogradeFeed =
-        RetrogradeFeed(knownEvents, System.currentTimeMillis(), warnings)
+        RetrogradeFeed(knownEvents, System.currentTimeMillis(), warnings, builtInCalendar = true)
 
     private val knownEvents: List<RetrogradeEvent> by lazy {
         listOf(
@@ -97,7 +97,7 @@ internal object RetrogradeTracker {
                     try {
                         fetchPlanet(body, start, stop) to null
                     } catch (error: Exception) {
-                        emptyList<RetrogradeEvent>() to "${body.name}: ${error.message ?: "data unavailable"}"
+                        emptyList<RetrogradeEvent>() to "${body.name}: live data temporarily unavailable."
                     }
                 }
             }.awaitAll()
@@ -105,11 +105,11 @@ internal object RetrogradeTracker {
         val allEvents = results.flatMap { it.first }
         val warnings = results.mapNotNull { it.second }
         if (allEvents.isEmpty()) {
-            if (cached != null) return@withContext cached.copy(events = mergeKnownEvents(cached.events), warnings = cached.warnings + "Live refresh failed; showing saved station dates.")
-            return@withContext fallbackFeed(listOf("Live ephemeris unavailable; showing the built-in station calendar.") + warnings.take(2))
+            if (cached != null) return@withContext cached.copy(events = mergeKnownEvents(cached.events), warnings = listOf("Live refresh could not complete. Showing the last saved station dates."))
+            return@withContext fallbackFeed(listOf("NASA/JPL live data could not be reached. Showing the built-in station calendar; verify dates with a current ephemeris before relying on them."))
         }
         val fetchedAt = System.currentTimeMillis()
-        val feed = RetrogradeFeed(mergeKnownEvents(allEvents), fetchedAt, warnings)
+        val feed = RetrogradeFeed(mergeKnownEvents(allEvents), fetchedAt, warnings.map { it.substringBefore(":") + ": live data temporarily unavailable." })
         prefs.edit().putLong(CACHE_TIME_KEY, fetchedAt).putString(CACHE_KEY, encodeFeed(feed)).apply()
         feed
     }
@@ -135,16 +135,19 @@ internal object RetrogradeTracker {
             .build()
         val connection = URL(uri.toString()).openConnection() as HttpsURLConnection
         connection.requestMethod = "GET"
-        connection.connectTimeout = 5_000
-        connection.readTimeout = 5_000
+        connection.connectTimeout = 12_000
+        connection.readTimeout = 18_000
         connection.setRequestProperty("Accept", "application/json")
         connection.setRequestProperty("User-Agent", "MagikalRetrogrades/0.1 Android")
         try {
             val responseCode = connection.responseCode
             val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val json = stream.bufferedReader().use { JSONObject(it.readText()) }
+            val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (responseCode !in 200..299) throw IllegalStateException("NASA/JPL returned HTTP $responseCode.")
+            if (!responseText.trimStart().startsWith("{")) throw IllegalStateException("NASA/JPL returned a non-JSON response (HTTP $responseCode).")
+            val json = JSONObject(responseText)
             val apiError = json.optString("error").takeIf { it.isNotBlank() }
-            if (responseCode !in 200..299 || apiError != null) throw IllegalStateException(apiError ?: "JPL returned HTTP $responseCode")
+            if (apiError != null) throw IllegalStateException("NASA/JPL could not provide this planetary data.")
             val signature = json.optJSONObject("signature")
             if (signature?.optString("source")?.contains("NASA/JPL Horizons", ignoreCase = true) != true) {
                 throw IllegalStateException("The response source could not be verified.")
@@ -230,7 +233,7 @@ internal object RetrogradeTracker {
         feed.events.forEach { items.put(JSONObject().put("planet", it.planet).put("start", it.startUtcMillis).put("end", it.endUtcMillis).put("zodiac", it.zodiacSign)) }
         val warnings = JSONArray()
         feed.warnings.forEach { warnings.put(it) }
-        return JSONObject().put("events", items).put("warnings", warnings).toString()
+        return JSONObject().put("events", items).put("warnings", warnings).put("builtInCalendar", feed.builtInCalendar).toString()
     }
 
     private fun decodeFeed(raw: String?, fetchedAt: Long): RetrogradeFeed? {
@@ -244,7 +247,7 @@ internal object RetrogradeTracker {
                 RetrogradeEvent(item.getString("planet"), item.getLong("start"), item.getLong("end"), item.optString("zodiac", ""))
             }
             val warnings = (0 until warningArray.length()).map { warningArray.getString(it) }
-            RetrogradeFeed(events, fetchedAt, warnings)
+            RetrogradeFeed(events, fetchedAt, warnings, root.optBoolean("builtInCalendar", false))
         } catch (_: Exception) { null }
     }
 }

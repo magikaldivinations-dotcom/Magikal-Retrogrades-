@@ -107,16 +107,21 @@ private fun MagikalApp() {
             bottomBar = {
                 Column(Modifier.fillMaxWidth().background(Color(0xFF17101F))) {
                     TripleMoonMark(Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp, bottom = 1.dp).size(width = 96.dp, height = 38.dp))
-                    NavigationBar(containerColor = Color(0xFF17101F), contentColor = Violet) {
+                    Row(Modifier.fillMaxWidth().height(72.dp).navigationBarsPadding().padding(horizontal = 3.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                         Page.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = page == item,
-                                onClick = { page = item },
-                                icon = { Text(item.icon, fontSize = 19.sp) },
-                                label = { Text(item.label, fontSize = 10.sp) },
-                                colors = NavigationBarItemDefaults.colors(selectedIconColor = Lilac, selectedTextColor = Lilac,
-                                    indicatorColor = PanelLight, unselectedIconColor = Muted, unselectedTextColor = Muted)
-                            )
+                            val selected = page == item
+                            Column(
+                                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp))
+                                    .background(if (selected) PanelLight else Color.Transparent)
+                                    .clickable { page = item }
+                                    .padding(horizontal = 1.dp, vertical = 5.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(item.icon, fontSize = 21.sp, color = if (selected) Lilac else Muted, maxLines = 1)
+                                Text(item.label, fontSize = 9.sp, lineHeight = 11.sp, color = if (selected) Lilac else Muted,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, textAlign = TextAlign.Center)
+                            }
                         }
                     }
                 }
@@ -282,11 +287,13 @@ private fun RetrogradesPage() {
             loading -> InfoCard("UPDATING THE SKY", "Fetching planetary positions from NASA/JPL Horizons…")
             error != null -> InfoCard("TRACKING TEMPORARILY UNAVAILABLE", "${error}. Tap Refresh dates to try again. Your guide content is still available offline.")
             feed != null -> {
-                val updated = formatLocalEventTime(feed!!.fetchedAtMillis, displayZone)
-                InfoCard("DATA UPDATED", "Last refreshed $updated. Station times are estimated from two-day ephemeris samples.")
-                if (feed!!.warnings.isNotEmpty()) {
-                    InfoCard("SOME PLANETS DIDN'T UPDATE", feed!!.warnings.joinToString(" · "))
+                if (feed!!.builtInCalendar) {
+                    InfoCard("BUILT-IN STATION CALENDAR", "Live NASA/JPL data is unavailable. These preloaded station dates are a guide; check a current ephemeris for confirmation.")
+                } else {
+                    val updated = formatLocalEventTime(feed!!.fetchedAtMillis, displayZone)
+                    InfoCard("LIVE DATA UPDATED", "Last refreshed $updated. Station times are estimated from two-day ephemeris samples.")
                 }
+                if (feed!!.warnings.isNotEmpty()) InfoCard("LIVE DATA NOTICE", feed!!.warnings.joinToString(" · "))
             }
         }
         val activeNow = feed?.events.orEmpty().filter { it.startUtcMillis <= nowMillis && it.endUtcMillis > nowMillis }.sortedBy { it.startUtcMillis }
