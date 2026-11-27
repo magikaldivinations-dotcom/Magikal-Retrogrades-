@@ -229,6 +229,22 @@ private fun getDisplayZone(context: Context): java.time.ZoneId {
 private fun saveDisplayZone(context: Context, zoneId: String) {
     context.getSharedPreferences(DISPLAY_ZONE_PREFS, Context.MODE_PRIVATE).edit().putString(DISPLAY_ZONE_KEY, zoneId).apply()
 }
+private const val MOON_HEMISPHERE_KEY = "moon_hemisphere"
+private fun getMoonHemisphere(context: Context): String =
+    context.getSharedPreferences(DISPLAY_ZONE_PREFS, Context.MODE_PRIVATE).getString(MOON_HEMISPHERE_KEY, "Auto") ?: "Auto"
+private fun saveMoonHemisphere(context: Context, hemisphere: String) {
+    context.getSharedPreferences(DISPLAY_ZONE_PREFS, Context.MODE_PRIVATE).edit().putString(MOON_HEMISPHERE_KEY, hemisphere).apply()
+}
+private fun automaticSouthernHemisphere(): Boolean {
+    val country = java.util.Locale.getDefault().country.uppercase()
+    if (country in setOf("AU", "NZ", "ZA", "AR", "CL", "UY", "PY", "BO", "PE", "BR", "ZW", "ZM", "MZ", "NA", "BW", "LS", "SZ", "MG", "FJ", "WS", "TO", "VU")) return true
+    if (country.isNotBlank()) return false
+    val zone = java.util.TimeZone.getDefault().id
+    return zone.startsWith("Australia/") || zone.startsWith("Pacific/Auckland") ||
+        zone.startsWith("Pacific/Fiji") || zone.startsWith("Africa/Johannesburg") ||
+        zone.startsWith("America/Argentina/") || zone.startsWith("America/Santiago") ||
+        zone.startsWith("America/Montevideo") || zone.startsWith("America/Sao_Paulo")
+}
 
 @Composable
 private fun DisplayZonePicker(selectedId: String, onSelect: (String) -> Unit) {
@@ -420,11 +436,11 @@ private fun moonSnapshot(): MoonSnapshot {
     val phaseIndex = floor(((phaseAngle + 22.5) % 360.0) / 45.0).toInt().coerceIn(0, 7)
     val illuminatedPercent = (moonIllumination(Body.Moon, now).phaseFraction * 100.0).roundToInt().coerceIn(0, 100)
     val previousNewMoon = searchMoonPhase(0.0, now, -40.0)
-    val ageDays = previousNewMoon?.let { (nowMillis - it.toMillisecondsSince1970()) / 86_400_000.0 } ?: 0.0
-    val upcoming = moonQuartersAfter(now).toList().take(4).map { event ->
+    val ageDays = previousNewMoon?.let { ((nowMillis - it.toMillisecondsSince1970()) / 86_400_000.0).coerceAtLeast(0.0) } ?: phase * 29.530588853
+    val upcoming = moonQuartersAfter(now).take(4).map { event ->
         val name = listOf("New Moon", "First Quarter", "Full Moon", "Last Quarter").getOrElse(event.quarter) { "Moon phase" }
         MoonPhaseEvent(name, event.time.toMillisecondsSince1970())
-    }
+    }.toList()
     return MoonSnapshot(phase, moonGuidance(moonPhaseNames[phaseIndex], illuminatedPercent), ageDays, upcoming)
 }
 
@@ -567,13 +583,17 @@ private fun MoonPage() {
     ) {
         while (true) {
             value = withContext(Dispatchers.Default) { moonSnapshot() }
-            delay(60_000)
+            delay(30_000)
         }
     }
     var selectedPhase by remember { mutableStateOf(snapshot.info.name) }
     var observerLocation by remember { mutableStateOf<Location?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var displayZoneId by remember { mutableStateOf(getDisplayZone(context).id) }
+    var hemisphereMode by remember { mutableStateOf(getMoonHemisphere(context)) }
+    val currentTimeMillis by produceState(System.currentTimeMillis()) {
+        while (true) { value = System.currentTimeMillis(); delay(30_000) }
+    }
     val displayZone = runCatching { java.time.ZoneId.of(displayZoneId) }.getOrDefault(java.time.ZoneId.systemDefault())
     var locationAccessDenied by remember { mutableStateOf(false) }
     var showLocationSettings by remember { mutableStateOf(false) }
@@ -584,6 +604,11 @@ private fun MoonPage() {
             requestingLocation = true
             requestCurrentObserverLocation(context) { location -> observerLocation = location; requestingLocation = false; locationAccessDenied = location == null }
         } else { requestingLocation = false; locationAccessDenied = true; showLocationSettings = true }
+    }
+    LaunchedEffect(Unit) {
+        val hasFine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (hasFine || hasCoarse) observerLocation = lastKnownObserverLocation(context)
     }
     LaunchedEffect(snapshot.info.name) { selectedPhase = snapshot.info.name }
     val selectedIsCurrent = selectedPhase == snapshot.info.name
@@ -603,31 +628,47 @@ private fun MoonPage() {
                         }
                     }
                 }
-                Text("CURRENT PHASE BY HEMISPHERE", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.padding(top = 12.dp))
-                Text(if (observerLocation == null) "The lunar phase is the same worldwide. Allow location access to calculate the Moon’s local viewing angle for your area." else "Location-based view updated for your device. The phase is shared worldwide; the Moon’s orientation is calculated for this place and time.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 4.dp, bottom = 7.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Northern hemisphere" to 1, "Southern hemisphere" to -1).forEach { (hemisphereName, sign) ->
-                        Surface(color = PanelLight, shape = RoundedCornerShape(13.dp), modifier = Modifier.weight(1f)) {
-                            Row(Modifier.padding(9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val latitude = observerLocation?.latitude?.let { kotlin.math.abs(it) * sign } ?: (35.0 * sign)
-                                val longitude = observerLocation?.longitude ?: 0.0
-                                val viewAngle = moonBrightLimbAngle(System.currentTimeMillis(), latitude, longitude)
-                                MoonOrb(snapshot.info.illumination, snapshot.info.name, Modifier.size(38.dp).graphicsLayer(rotationZ = viewAngle.toFloat()))
-                                Column {
-                                    Text(hemisphereName, color = Gold, fontSize = 9.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(snapshot.info.name, color = Lilac, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 3.dp))
-                                    Text("${snapshot.info.illumination}% illuminated", color = Muted, fontSize = 8.sp, lineHeight = 11.sp)
-                                }
-                            }
-                        }
+                Text("HEMISPHERE VIEW", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.padding(top = 12.dp))
+                Text("The phase and illumination are shared worldwide. Choose how the Moon is oriented in your sky view.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 4.dp, bottom = 5.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("Auto", "Northern", "Southern").forEach { option ->
+                        FilterChip(selected = hemisphereMode == option, onClick = {
+                            hemisphereMode = option
+                            saveMoonHemisphere(context, option)
+                        }, label = { Text(option, fontSize = 9.sp) },
+                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = PanelLight, selectedLabelColor = Lilac, labelColor = Muted))
                     }
                 }
+                val isSouthern = when (hemisphereMode) {
+                    "Southern" -> true
+                    "Northern" -> false
+                    else -> observerLocation?.latitude?.let { it < 0.0 } ?: automaticSouthernHemisphere()
+                }
+                val hemisphereName = if (isSouthern) "Southern hemisphere" else "Northern hemisphere"
+                val defaultLatitude = if (isSouthern) -35.0 else 35.0
+                val latitude = observerLocation?.latitude?.let { if (hemisphereMode == "Auto") it else kotlin.math.abs(it) * if (isSouthern) -1 else 1 } ?: defaultLatitude
+                val longitude = observerLocation?.longitude ?: 0.0
+                val viewAngle = moonBrightLimbAngle(currentTimeMillis, latitude, longitude)
+                Row(Modifier.fillMaxWidth().padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MoonOrb(snapshot.info.illumination, snapshot.info.name, Modifier.size(64.dp).graphicsLayer(rotationZ = viewAngle.toFloat()))
+                    Column {
+                        Text(hemisphereName, color = Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text(snapshot.info.name, color = Lilac, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
+                        Text("${snapshot.info.illumination}% illuminated", color = Muted, fontSize = 10.sp)
+                        val zodiac = moonPositionAt(currentTimeMillis, latitude, longitude).zodiac
+                        Text("Moon in $zodiac", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+                val nextPhase = snapshot.upcoming.firstOrNull()
                 val nextFull = snapshot.upcoming.firstOrNull { it.name == "Full Moon" }
                 val nextNew = snapshot.upcoming.firstOrNull { it.name == "New Moon" }
-                if (nextFull != null) InfoLine("NEXT FULL MOON", formatLocalEventTime(nextFull.atMillis, displayZone))
-                if (nextNew != null) InfoLine("NEXT NEW MOON", formatLocalEventTime(nextNew.atMillis, displayZone))
-                Text("NEXT PHASES", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.padding(top = 10.dp, bottom = 3.dp))
-                snapshot.upcoming.forEach { phase -> TimelineMoment(phase.name, formatLocalEventTime(phase.atMillis, displayZone)) }
+                if (nextPhase != null) InfoLine("NEXT PHASE · ${nextPhase.name.uppercase()}", "In ${formatCountdown(nextPhase.atMillis - currentTimeMillis)}")
+                if (nextFull != null) InfoLine("NEXT FULL MOON", "In ${formatCountdown(nextFull.atMillis - currentTimeMillis)}")
+                if (nextNew != null) InfoLine("NEXT NEW MOON", "In ${formatCountdown(nextNew.atMillis - currentTimeMillis)}")
+                Text("UPCOMING MOON PHASES", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.padding(top = 10.dp, bottom = 3.dp))
+                snapshot.upcoming.forEach { phase ->
+                    TimelineMoment(phase.name, "In ${formatCountdown(phase.atMillis - currentTimeMillis)} · ${formatLocalEventTime(phase.atMillis, displayZone)}")
+                }
                 Button(onClick = {
                     val hasFine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     val hasCoarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
