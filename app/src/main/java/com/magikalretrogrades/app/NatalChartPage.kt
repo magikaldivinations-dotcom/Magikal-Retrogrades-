@@ -385,7 +385,7 @@ private fun NatalChartResult(chart: NatalChartData) {
                 if (chart.houses.isNotEmpty()) {
                     Text("Your 12 house cusps", color = ChartLilac, fontSize = 19.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 5.dp))
                     Text("In Whole Sign houses, each house begins at 0° of its sign. The Ascendant identifies the first house.", color = ChartMuted, fontSize = 12.sp, lineHeight = 17.sp)
-                    chart.houses.forEach { house -> HouseRow(house) }
+                    chart.houses.forEach { house -> HouseRow(house, chart) }
                 }
                 if (chart.aspects.isNotEmpty()) {
                     Text("Major aspects", color = ChartLilac, fontSize = 19.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 5.dp))
@@ -434,18 +434,99 @@ private fun PlacementCard(placement: NatalPlacement) {
     }
 }
 
-@Composable
-private fun HouseRow(house: NatalHouse) {
-    Column(Modifier.fillMaxWidth().background(ChartPanelDark, RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(house.number.toString().padStart(2, '0'), color = ChartGold, fontSize = 12.sp, modifier = Modifier.width(34.dp))
-            Text("House ${house.number}", color = ChartLilac, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Text("${ChartSignNames[floor(house.longitude / 30.0).toInt()]} 0°00′", color = ChartMuted, fontSize = 12.sp)
-        }
-        Text(houseKeywords(house.number), color = ChartMuted, fontSize = 11.sp)
-    }
+private data class HouseGuide(
+    val title: String,
+    val meaning: String,
+    val topics: String,
+    val reflection: String
+)
+
+private val HouseGuides = mapOf(
+    1 to HouseGuide("Self, body & approach", "The first house begins with the Ascendant. It describes the way you meet life, present yourself, and initiate experience. It is a symbolic lens on temperament and vitality, not a diagnosis or a fixed description of appearance.", "Identity, self-presentation, first impressions, personal initiative, and new beginnings.", "Where do you feel most able to act as yourself, and what helps you begin?"),
+    2 to HouseGuide("Resources, values & security", "The second house concerns resources you develop, use, and protect. It includes possessions and material security, as well as values and practical abilities you rely on. It does not predict income or guarantee wealth.", "Personal finances and possessions, livelihood skills, priorities, self-worth, and stability.", "Which abilities and values help you build a sense of security over time?"),
+    3 to HouseGuide("Learning, communication & local life", "The third house describes everyday exchange: how information moves through your immediate world and how you learn from it. It is traditionally associated with siblings and neighbors, short journeys, and foundational learning.", "Speaking and writing, practical learning, siblings, neighbors, local travel, messages, and daily questions.", "What conversations or skills would make your everyday world clearer and more connected?"),
+    4 to HouseGuide("Home, roots & private foundations", "The fourth house describes the base from which you live: home, family roots, private life, and the conditions that help you feel grounded. It can point to themes of ancestry and belonging without deciding what family relationships must be.", "Home, family roots, ancestry, privacy, emotional foundations, and belonging.", "What does feeling at home mean to you, and which foundations do you want to strengthen?"),
+    5 to HouseGuide("Creativity, joy & self-expression", "The fifth house is associated with what you create and enjoy for its own sake. It includes play, romance, pleasure, children, and creative projects. Its symbolism does not promise fertility, romance, or a particular outcome.", "Creative work, hobbies, play, celebration, romance, pleasure, children, and expressive risks.", "What kind of joy or creative expression feels worth making room for?"),
+    6 to HouseGuide("Daily work, service & wellbeing habits", "The sixth house describes the work of maintaining everyday life: routines, practical service, skills, and care of the body through ordinary habits. Astrology cannot assess, diagnose, or predict medical conditions; use qualified health professionals for health concerns.", "Daily schedules, work conditions, service, useful skills, maintenance, and wellbeing habits.", "Which small routine supports you, and which one could be made more sustainable?"),
+    7 to HouseGuide("Partnerships & agreements", "The seventh house focuses on one-to-one encounters and the agreements that make them work. It can describe what you seek or learn through partners, clients, collaborators, and direct opponents; it does not guarantee marriage or a specific relationship outcome.", "Committed relationships, business partnerships, clients, contracts, negotiation, and open conflict.", "What do fairness, reciprocity, and clear boundaries look like in close partnerships?"),
+    8 to HouseGuide("Shared resources, trust & change", "The eighth house concerns what is shared, owed, entrusted, or experienced jointly. It is also used to reflect on intimacy, vulnerability, and transitions that call for letting go or rebuilding. It does not predict death, inheritance, debt, or financial outcomes.", "Shared finances, taxes and debts, support from others, trust, intimacy, vulnerability, and major transitions.", "Where would clearer agreements or more honest communication help you feel safer sharing?"),
+    9 to HouseGuide("Beliefs, higher learning & wider horizons", "The ninth house explores how you make meaning beyond familiar routines. It is linked with advanced study, philosophy, religion or spirituality, law, publishing, and long-distance travel. It describes perspectives you may explore, not a single correct belief.", "Higher education, philosophy, spiritual or religious frameworks, law, publishing, and long journeys.", "Which belief or area of study helps you grow, and what might you still want to question?"),
+    10 to HouseGuide("Vocation, contribution & public life", "The tenth house describes visible responsibilities and the contribution you build over time. It is associated with vocation, reputation, authority, and long-term aims. In Whole Sign houses, the Midheaven can fall in another house, so it is shown separately from the tenth-house sign.", "Career and vocation, public role, recognition, leadership, responsibility, and long-term direction.", "What do you want to be known for, and what kind of contribution feels meaningful to you?"),
+    11 to HouseGuide("Friendship, community & future aims", "The eleventh house concerns people and groups who help shape your hopes for the future. It is associated with friends, networks, communities, shared causes, and support gained through those connections.", "Friendships, groups, networks, shared ideals, patrons, and long-range goals.", "Which communities reflect your values, and what future are you willing to help build together?"),
+    12 to HouseGuide("Retreat, reflection & behind-the-scenes matters", "The twelfth house is associated with solitude, restoration, private reflection, and matters not always easy to see or control. It can help explore boundaries, inner patterns, compassionate service, and spiritual practice; it does not mean someone is destined for isolation or hidden enemies.", "Rest and retreat, private burdens, inner habits, behind-the-scenes work, institutions, compassion, and spiritual reflection.", "What helps you rest, set limits, and seek support when something feels difficult to name?")
+)
+
+private val TraditionalSignRulers = listOf(
+    "Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury",
+    "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"
+)
+
+private val ModernCoRulers = mapOf(7 to "Pluto", 10 to "Uranus", 11 to "Neptune")
+
+private fun signStyle(signIndex: Int): String = when (signIndex) {
+    0 -> "directly, with an impulse to initiate"
+    1 -> "steadily, emphasizing patience and tangible results"
+    2 -> "through curiosity, ideas, and exchange"
+    3 -> "with sensitivity to belonging, care, and emotional safety"
+    4 -> "warmly, creatively, and with a wish to express individuality"
+    5 -> "carefully, practically, and with attention to useful details"
+    6 -> "through cooperation, fairness, and consideration of others"
+    7 -> "intensely, privately, and with a desire to understand what lies beneath the surface"
+    8 -> "with curiosity about meaning, possibility, and wider horizons"
+    9 -> "deliberately, with attention to responsibility and lasting structure"
+    10 -> "independently, with openness to unconventional solutions"
+    else -> "imaginatively, with sensitivity to ideals and subtle impressions"
 }
 
+@Composable
+private fun HouseRow(house: NatalHouse, chart: NatalChartData) {
+    val signIndex = floor(house.longitude / 30.0).toInt().mod(12)
+    val sign = ChartSignNames[signIndex]
+    val guide = HouseGuides.getValue(house.number)
+    val rulerName = TraditionalSignRulers[signIndex]
+    val ruler = chart.placements.firstOrNull { it.name == rulerName }
+    val coRulerName = ModernCoRulers[signIndex]
+    val coRuler = coRulerName?.let { name -> chart.placements.firstOrNull { it.name == name } }
+    val residents = chart.placements.filter { it.house == house.number }
+
+    Surface(color = ChartPanelDark, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(house.number.toString().padStart(2, '0'), color = ChartGold, fontSize = 12.sp, modifier = Modifier.width(34.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("House ${house.number} · ${guide.title}", color = ChartLilac, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${sign} · Whole Sign house", color = ChartGold, fontSize = 11.sp)
+                }
+                Text("0°00′", color = ChartMuted, fontSize = 11.sp)
+            }
+            Text(guide.meaning, color = ChartLilac, fontSize = 12.sp, lineHeight = 18.sp)
+            Text("LIFE AREAS", color = ChartGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(guide.topics, color = ChartMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            Text("${sign} colors these themes with an approach that is ${signStyle(signIndex)}.", color = ChartMuted, fontSize = 11.sp, lineHeight = 16.sp)
+
+            if (ruler != null) {
+                Text("HOUSE RULER · ${rulerName.uppercase()}", color = ChartGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("${ruler.glyph} ${ruler.name} is in ${ChartSignNames[ruler.signIndex]} in House ${ruler.house}. This links House ${house.number} topics with ${houseKeywords(ruler.house ?: 1)}. ${planetInterpretation(ruler)}",
+                    color = ChartMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            }
+            if (coRuler != null) {
+                Text("MODERN CO-RULER · ${coRuler.name.uppercase()}", color = ChartGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("${coRuler.name} is in ${ChartSignNames[coRuler.signIndex]} in House ${coRuler.house}. This is an additional modern layer; the traditional ruler remains the primary ruler used here.", color = ChartMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            }
+
+            Text("PLANETS IN THIS HOUSE", color = ChartGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            if (residents.isEmpty()) {
+                Text("No major planet from this chart falls in this house. That does not mean this area is missing or unimportant: read its sign and ruler above alongside the rest of the chart.", color = ChartMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            } else {
+                residents.forEach { planet ->
+                    Text("${planet.glyph} ${planet.name} in ${ChartSignNames[planet.signIndex]}: ${planetInterpretation(planet)}", color = ChartMuted, fontSize = 11.sp, lineHeight = 16.sp)
+                }
+            }
+            Text("REFLECTION", color = ChartGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(guide.reflection, color = ChartLilac, fontSize = 11.sp, lineHeight = 16.sp)
+        }
+    }
+}
 private fun planetInterpretation(p: NatalPlacement): String {
     val sign = ChartSignNames[p.signIndex]
     val style = when (p.signIndex % 4) {
