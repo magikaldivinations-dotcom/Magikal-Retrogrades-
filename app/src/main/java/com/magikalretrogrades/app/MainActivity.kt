@@ -31,6 +31,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import android.net.Uri
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,21 +109,16 @@ private fun MagikalApp() {
             bottomBar = {
                 Column(Modifier.fillMaxWidth().background(Color(0xFF17101F))) {
                     TripleMoonMark(Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp, bottom = 1.dp).size(width = 96.dp, height = 38.dp))
-                    Row(Modifier.fillMaxWidth().height(72.dp).navigationBarsPadding().padding(horizontal = 3.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NavigationBar(containerColor = Color(0xFF17101F), contentColor = Violet) {
                         Page.entries.forEach { item ->
-                            val selected = page == item
-                            Column(
-                                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp))
-                                    .background(if (selected) PanelLight else Color.Transparent)
-                                    .clickable { page = item }
-                                    .padding(horizontal = 1.dp, vertical = 5.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text(item.icon, fontSize = 21.sp, color = if (selected) Lilac else Muted, maxLines = 1)
-                                Text(item.label, fontSize = 9.sp, lineHeight = 11.sp, color = if (selected) Lilac else Muted,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, textAlign = TextAlign.Center)
-                            }
+                            NavigationBarItem(
+                                selected = page == item,
+                                onClick = { page = item },
+                                icon = { Text(item.icon, fontSize = 19.sp) },
+                                label = { Text(item.label, fontSize = 10.sp) },
+                                colors = NavigationBarItemDefaults.colors(selectedIconColor = Lilac, selectedTextColor = Lilac,
+                                    indicatorColor = PanelLight, unselectedIconColor = Muted, unselectedTextColor = Muted)
+                            )
                         }
                     }
                 }
@@ -265,7 +262,7 @@ private fun RetrogradesPage() {
     LaunchedEffect(Unit) {
         while (true) {
             nowMillis = System.currentTimeMillis()
-            delay(1_000)
+            delay(60_000)
         }
     }
     LaunchedEffect(refreshKey) {
@@ -382,12 +379,11 @@ private fun TimelineMoment(label: String, countdown: String) {
 }
 
 private fun formatCountdown(milliseconds: Long): String {
-    val totalSeconds = (milliseconds.coerceAtLeast(0L) / 1_000L)
-    val days = totalSeconds / 86_400L
-    val hours = (totalSeconds % 86_400L) / 3_600L
-    val minutes = (totalSeconds % 3_600L) / 60L
-    val seconds = totalSeconds % 60L
-    return if (days > 0) "${days}d ${hours}h ${minutes}m ${seconds}s" else "${hours}h ${minutes}m ${seconds}s"
+    val totalMinutes = milliseconds.coerceAtLeast(0L) / 60_000L
+    val days = totalMinutes / 1_440L
+    val hours = (totalMinutes % 1_440L) / 60L
+    val minutes = totalMinutes % 60L
+    return if (days > 0) "${days}d ${hours}h ${minutes}m" else "${hours}h ${minutes}m"
 }
 
 @Composable
@@ -562,7 +558,14 @@ private fun MoonOrb(illumination: Int, phaseName: String, modifier: Modifier = M
 
 @Composable
 private fun MoonPage() {
-    var snapshot by remember { mutableStateOf(moonSnapshot()) }
+    val snapshot by produceState(
+        initialValue = MoonSnapshot(0.0, moonGuidance("New Moon", 0), 0.0, emptyList())
+    ) {
+        while (true) {
+            value = withContext(Dispatchers.Default) { moonSnapshot() }
+            delay(60_000)
+        }
+    }
     var selectedPhase by remember { mutableStateOf(snapshot.info.name) }
     var observerLocation by remember { mutableStateOf<Location?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -577,12 +580,6 @@ private fun MoonPage() {
             requestingLocation = true
             requestCurrentObserverLocation(context) { location -> observerLocation = location; requestingLocation = false; locationAccessDenied = location == null }
         } else { requestingLocation = false; locationAccessDenied = true; showLocationSettings = true }
-    }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(60_000)
-            snapshot = moonSnapshot()
-        }
     }
     LaunchedEffect(snapshot.info.name) { selectedPhase = snapshot.info.name }
     val selectedIsCurrent = selectedPhase == snapshot.info.name
