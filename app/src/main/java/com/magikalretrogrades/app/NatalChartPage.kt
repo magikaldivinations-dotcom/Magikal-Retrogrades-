@@ -98,8 +98,11 @@ private data class NatalAspect(
     val color: Color
 )
 
+private data class NatalHouse(val number: Int, val longitude: Double)
+
 private data class NatalChartData(
     val placements: List<NatalPlacement>,
+    val houses: List<NatalHouse>,
     val ascendant: Double?,
     val midheaven: Double?,
     val aspects: List<NatalAspect>,
@@ -320,11 +323,15 @@ private fun calculateNatalChart(date: LocalDate, time: LocalTime, place: BirthPl
         val house = ascSign?.let { (sign - it + 12) % 12 + 1 }
         NatalPlacement(name, glyph, positiveDegrees(longitude), sign, positiveDegrees(longitude) % 30.0, house)
     }
+    // Whole Sign house cusps begin at 0° of the rising sign.
+    val houses = ascSign?.let { risingSign ->
+        (0..11).map { offset -> NatalHouse(offset + 1, ((risingSign + offset) % 12) * 30.0) }
+    }.orEmpty()
     val aspects = buildAspects(placements)
     val dtFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a", Locale.getDefault())
     val note = if (offsets.size > 1) "This birthplace had two possible UTC offsets at that clock time; the earlier occurrence was used." else null
     return NatalChartData(
-        placements, angles?.first, angles?.second, aspects, place,
+        placements, houses, angles?.first, angles?.second, aspects, place,
         local.format(dtFormatter) + if (unknownTime) " (time unknown; noon used)" else " ${zone.id}", unknownTime, note
     )
 }
@@ -372,18 +379,27 @@ private fun NatalChartResult(chart: NatalChartData) {
                     }
                 }
                 NatalWheel(chart, Modifier.fillMaxWidth().aspectRatio(1f))
-                Text("Planetary positions", color = ChartLilac, fontSize = 19.sp, fontWeight = FontWeight.Medium)
-                chart.placements.forEach { placement -> PlacementRow(placement) }
+                Text("Planetary placements & meanings", color = ChartLilac, fontSize = 19.sp, fontWeight = FontWeight.Medium)
+                Text("Each entry shows the planet’s zodiac sign, exact degree, and house. Open it for a personal interpretation.", color = ChartMuted, fontSize = 12.sp, lineHeight = 17.sp)
+                chart.placements.forEach { placement -> PlacementCard(placement) }
+                if (chart.houses.isNotEmpty()) {
+                    Text("Your 12 house cusps", color = ChartLilac, fontSize = 19.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 5.dp))
+                    Text("In Whole Sign houses, each house begins at 0° of its sign. The Ascendant identifies the first house.", color = ChartMuted, fontSize = 12.sp, lineHeight = 17.sp)
+                    chart.houses.forEach { house -> HouseRow(house) }
+                }
                 if (chart.aspects.isNotEmpty()) {
                     Text("Major aspects", color = ChartLilac, fontSize = 19.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 5.dp))
                     chart.aspects.take(15).forEach { aspect ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("${aspect.first.glyph} ${aspect.first.name}  ·  ${aspect.name}  ·  ${aspect.second.glyph} ${aspect.second.name}", color = aspect.color, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                            Text("${aspect.orb.roundToInt()}° orb", color = ChartMuted, fontSize = 10.sp)
+                            Column(Modifier.weight(1f)) {
+                                Text("${aspect.first.glyph} ${aspect.first.name}  ·  ${aspect.name}  ·  ${aspect.second.glyph} ${aspect.second.name}", color = aspect.color, fontSize = 12.sp)
+                                Text(aspectMeaning(aspect), color = ChartMuted, fontSize = 11.sp, lineHeight = 15.sp)
+                            }
+                            Text(degreeMinute(aspect.orb), color = ChartMuted, fontSize = 10.sp)
                         }
                     }
                 }
-                Text("Planet positions use Astronomy Engine’s on-device ephemeris. Its stated planetary-position accuracy is about ±1 arcminute. Houses use the Whole Sign system and the selected place’s time zone.", color = ChartMuted, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp))
+                Text("Planet positions are calculated on-device with Astronomy Engine. House cusps use the Whole Sign system. Birth time and historical time-zone records can affect the Ascendant, houses, and exact degrees. Astrology is for personal reflection and entertainment.", color = ChartMuted, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
@@ -400,13 +416,82 @@ private fun AngleCard(label: String, longitude: Double, modifier: Modifier = Mod
 }
 
 @Composable
-private fun PlacementRow(placement: NatalPlacement) {
-    Row(Modifier.fillMaxWidth().background(ChartPanelDark, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(placement.glyph, color = ChartGold, fontSize = 19.sp, modifier = Modifier.width(30.dp))
-        Text(placement.name, color = ChartLilac, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text("${ChartSignNames[placement.signIndex]} ${degreeMinute(placement.degreesInSign)}", color = ChartLilac, fontSize = 12.sp, textAlign = TextAlign.End)
-        placement.house?.let { Text("H$it", color = ChartViolet, fontSize = 11.sp, modifier = Modifier.width(35.dp), textAlign = TextAlign.End) }
+private fun PlacementCard(placement: NatalPlacement) {
+    var expanded by remember(placement.name, placement.longitude) { mutableStateOf(false) }
+    Surface(color = ChartPanelDark, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(), onClick = { expanded = !expanded }) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(placement.glyph, color = ChartGold, fontSize = 19.sp, modifier = Modifier.width(30.dp))
+                Text(placement.name, color = ChartLilac, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("${ChartSignNames[placement.signIndex]} ${degreeMinute(placement.degreesInSign)}", color = ChartLilac, fontSize = 12.sp, textAlign = TextAlign.End)
+                placement.house?.let { Text("H$it", color = ChartViolet, fontSize = 11.sp, modifier = Modifier.width(35.dp), textAlign = TextAlign.End) }
+            }
+            if (expanded) {
+                Text(planetInterpretation(placement), color = ChartMuted, fontSize = 12.sp, lineHeight = 18.sp)
+                placement.house?.let { Text("House $it: ${houseKeywords(it)}", color = ChartGold, fontSize = 11.sp, lineHeight = 16.sp) }
+            }
+        }
     }
+}
+
+@Composable
+private fun HouseRow(house: NatalHouse) {
+    Column(Modifier.fillMaxWidth().background(ChartPanelDark, RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(house.number.toString().padStart(2, '0'), color = ChartGold, fontSize = 12.sp, modifier = Modifier.width(34.dp))
+            Text("House ${house.number}", color = ChartLilac, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text("${ChartSignNames[floor(house.longitude / 30.0).toInt()]} 0°00′", color = ChartMuted, fontSize = 12.sp)
+        }
+        Text(houseKeywords(house.number), color = ChartMuted, fontSize = 11.sp)
+    }
+}
+
+private fun planetInterpretation(p: NatalPlacement): String {
+    val sign = ChartSignNames[p.signIndex]
+    val style = when (p.signIndex % 4) {
+        0 -> "direct, initiating, and responsive to fresh starts"
+        1 -> "steady, grounded, and oriented toward what can be built"
+        2 -> "curious, adaptable, and energized by ideas or exchange"
+        else -> "intuitive, protective, and attentive to emotional undercurrents"
+    }
+    val theme = when (p.name) {
+        "Sun" -> "identity, vitality, and self-expression"
+        "Moon" -> "emotional needs, instincts, and sources of comfort"
+        "Mercury" -> "thinking, learning, communication, and daily exchanges"
+        "Venus" -> "affection, values, attraction, and what feels meaningful"
+        "Mars" -> "initiative, desire, courage, and how you pursue what matters"
+        "Jupiter" -> "growth, confidence, learning, and guiding beliefs"
+        "Saturn" -> "responsibility, boundaries, patience, and lasting mastery"
+        "Uranus" -> "independence, innovation, and the urge to change stale patterns"
+        "Neptune" -> "imagination, ideals, compassion, and clear boundaries"
+        else -> "deep change, renewal, and the work of letting go and rebuilding"
+    }
+    val house = p.house?.let { " In House $it, this expression is especially connected with ${houseKeywords(it)}." }
+        ?: " The house cannot be established without a reliable birth time."
+    return "${p.name} describes $theme. In $sign, it tends to express itself in a $style way.$house"
+}
+
+private fun houseKeywords(house: Int): String = when (house) {
+    1 -> "identity, presence, and new beginnings"
+    2 -> "resources, personal values, and self-reliance"
+    3 -> "learning, communication, and nearby connections"
+    4 -> "home, roots, family, and private life"
+    5 -> "creativity, play, romance, and self-expression"
+    6 -> "routines, skills, service, and wellbeing"
+    7 -> "partnerships, agreements, and one-to-one relationships"
+    8 -> "shared resources, trust, intimacy, and transformation"
+    9 -> "beliefs, wider learning, travel, and meaning"
+    10 -> "career, public contribution, and long-term direction"
+    11 -> "friendships, communities, and future aims"
+    else -> "rest, reflection, spiritual life, and behind-the-scenes matters"
+}
+
+private fun aspectMeaning(aspect: NatalAspect): String = when (aspect.name) {
+    "Conjunction" -> "The two planetary themes combine and intensify one another."
+    "Sextile" -> "The themes can support one another when you actively work with the opportunity."
+    "Square" -> "The themes can create friction that invites practice, adjustment, and growth."
+    "Trine" -> "The themes tend to flow together and can feel familiar or easy to access."
+    else -> "The themes face one another, asking for awareness and a workable balance."
 }
 
 private fun degreeMinute(value: Double): String {
@@ -430,7 +515,7 @@ private fun NatalWheel(chart: NatalChartData, modifier: Modifier = Modifier) {
             return Offset(center.x + (kotlin.math.cos(angle) * r).toFloat(), center.y + (kotlin.math.sin(angle) * r).toFloat())
         }
         for (i in 0..11) {
-            val cusp = if (chart.ascendant == null) i * 30.0 else floor(asc / 30.0) * 30.0 + i * 30.0
+            val cusp = chart.houses.getOrNull(i)?.longitude ?: i * 30.0
             val outerPoint = point(cusp, 1f)
             val innerPoint = point(cusp, .52f)
             drawLine(Color(0xFF5A4668), innerPoint, outerPoint, strokeWidth = size.minDimension * .0035f)
