@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#130d1b">
+  <meta name="description" content="Privacy policy for the Magikal Retrogrades Android app.">
+  <title>Privacy Policy | Magikal Retrogrades</title>
+  <style>
+    :root { color-scheme: dark; --bg:#130d1b; --panel:#20172b; --line:#49365b; --text:#f4edf8; --muted:#c8bad3; --gold:#e8c77e; --violet:#d0a7ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(ellipse at top, #30213e 0, var(--bg) 58%); color:var(--text); font:17px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(900px, calc(100% - 32px)); margin:0 auto; padding:56px 0 72px; }
+    header { border-bottom:1px solid var(--line); padding-bottom:28px; margin-bottom:28px; }
+    .eyebrow { color:var(--gold); font-size:.78rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase; }
+    h1,h2 { line-height:1.2; }
+    h1 { margin:.5rem 0 .7rem; font:600 clamp(2.2rem,6vw,3.4rem)/1.1 Georgia,serif; }
+    h2 { margin:2rem 0 .5rem; color:var(--violet); font:600 1.35rem/1.3 Georgia,serif; }
+    p,ul { margin:.5rem 0 1rem; }
+    li { margin:.35rem 0; }
+    .updated { color:var(--muted); font-size:.95rem; }
+    .card { background:color-mix(in srgb,var(--panel) 92%,transparent); border:1px solid var(--line); border-radius:18px; padding:22px 24px; margin:24px 0; }
+    a { color:#e4c9ff; text-underline-offset:3px; }
+    a:hover { color:#fff; }
+    strong { color:#fff; }
+    footer { border-top:1px solid var(--line); margin-top:38px; padding-top:22px; color:var(--muted); font-size:.95rem; }
+    @media (max-width:600px) { main { padding-top:36px; } .card { padding:18px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Magikal Divinations</div>
+    <h1>Magikal Retrogrades Privacy Policy</h1>
+    <p class="updated">Effective date: November 26, 2026</p>
+    <p>This policy explains how the Magikal Retrogrades Android app handles information when you use its planetary retrograde tracker, Moon features, natal chart, and journal.</p>
+  </header>
+
+  <section class="card" aria-label="Quick summary">
+    <strong>In brief:</strong> Your birth date and time are used on your device to calculate your natal chart. The app sends only the birthplace text you enter to Open-Meteo to look up a matching place. Optional device location is used on your device for local Moon viewing details. Journal entries remain in private app storage on your device.
+  </section>
+
+  <h2>Information the app uses</h2>
+  <ul>
+    <li><strong>Natal chart details:</strong> Your birth date and time are calculated on your device. The app does not send those details to our servers or to the geocoding service.</li>
+    <li><strong>Birthplace search:</strong> When you search for a birthplace, the text you type (such as a city and state) is sent to the Open-Meteo Geocoding API. Open-Meteo returns matching place information, coordinates, and a time zone; the app uses those results on your device to calculate the chart. The app does not send your device GPS location as part of this search.</li>
+    <li><strong>Optional device location:</strong> If you choose “Use my location for local sky details” and grant Android location permission, the app uses the device location locally to calculate Moon viewing details such as local sky position and moonrise or moonset. This location is not sent to Magikal Divinations, Open-Meteo, or NASA/JPL.</li>
+    <li><strong>Journal and preferences:</strong> Journal entries, display preferences, and cached planetary ephemeris results are stored in app-private storage on your device. Journal entries are not uploaded or synced by this app. Android backup is disabled for the app. You can remove locally stored app data by clearing the app’s storage or uninstalling it.</li>
+  </ul>
+
+  <h2>Planetary data services</h2>
+  <p>The retrograde tracker connects to the NASA/JPL Horizons API to request planetary ephemeris data. These requests use astronomy parameters such as the selected planetary object and date range; they do not include your natal chart details, journal entries, or device location. The app caches the returned planetary data on your device for up to 12 hours.</p>
+  <p>Open-Meteo and NASA/JPL operate their own services and handle routine connection information, such as network and server logs, under their own policies. Open-Meteo’s privacy notice describes the information it may log and its retention practices. Please review their current information here:</p>
+  <ul>
+    <li><a href="https://open-meteo.com/en/terms">Open-Meteo terms and privacy notice</a></li>
+    <li><a href="https://ssd-api.jpl.nasa.gov/doc/horizons.html">NASA/JPL Horizons API documentation</a></li>
+  </ul>
+
+  <h2>Information we do not collect through the app</h2>
+  <p>Magikal Divinations does not operate an account system or cloud profile for this app. The app does not include advertising or analytics tracking. We do not receive your birth details, device location, or journal entries through the app. If you contact us by email, we will receive the information you choose to include in that message and use it to respond.</p>
+
+  <h2>Children and age</h2>
+  <p>Magikal Retrogrades is intended for people aged 18 and older and is not designed for children.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>You can decline or revoke location permission in Android settings. Location-based Moon viewing details will then be unavailable, while the rest of the app can continue to work.</li>
+    <li>You can choose not to search for a birthplace or create a natal chart.</li>
+    <li>You can delete journal entries within the app, or clear the app’s storage or uninstall the app to remove data stored locally by it.</li>
+  </ul>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this policy when the app’s features or data practices change. The latest version will be available at this same address, with its effective date shown above.</p>
+
+  <footer>
+    <p><strong>Privacy questions?</strong> Contact Magikal Divinations at <a href="mailto:magikaldivinations@outlook.com">magikaldivinations@outlook.com</a>.</p>
+    <p>Magikal Retrogrades is an astrology and reflection app. It is for personal exploration and is not medical, legal, or financial advice.</p>
+  </footer>
+</main>
+</body>
+</html>
