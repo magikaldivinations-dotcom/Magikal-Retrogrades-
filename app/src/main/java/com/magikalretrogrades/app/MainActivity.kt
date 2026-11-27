@@ -436,7 +436,7 @@ private fun moonSnapshot(): MoonSnapshot {
     val phaseIndex = floor(((phaseAngle + 22.5) % 360.0) / 45.0).toInt().coerceIn(0, 7)
     val illuminatedPercent = (moonIllumination(Body.Moon, now).phaseFraction * 100.0).roundToInt().coerceIn(0, 100)
     val previousNewMoon = searchMoonPhase(0.0, now, -40.0)
-    val ageDays = previousNewMoon?.let { ((nowMillis - it.toMillisecondsSince1970()) / 86_400_000.0).coerceAtLeast(0.0) } ?: Double.NaN
+    val ageDays = previousNewMoon?.let { ((nowMillis - it.toMillisecondsSince1970()) / 86_400_000.0).coerceAtLeast(0.0) } ?: phase * 29.530588853
     val upcoming = moonQuartersAfter(now).take(4).map { event ->
         val name = listOf("New Moon", "First Quarter", "Full Moon", "Last Quarter").getOrElse(event.quarter) { "Moon phase" }
         MoonPhaseEvent(name, event.time.toMillisecondsSince1970())
@@ -583,7 +583,7 @@ private fun MoonPage() {
     ) {
         while (true) {
             value = withContext(Dispatchers.Default) { moonSnapshot() }
-            delay(60_000)
+            delay(30_000)
         }
     }
     var selectedPhase by remember { mutableStateOf(snapshot.info.name) }
@@ -604,6 +604,11 @@ private fun MoonPage() {
             requestingLocation = true
             requestCurrentObserverLocation(context) { location -> observerLocation = location; requestingLocation = false; locationAccessDenied = location == null }
         } else { requestingLocation = false; locationAccessDenied = true; showLocationSettings = true }
+    }
+    LaunchedEffect(Unit) {
+        val hasFine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (hasFine || hasCoarse) observerLocation = lastKnownObserverLocation(context)
     }
     LaunchedEffect(snapshot.info.name) { selectedPhase = snapshot.info.name }
     val selectedIsCurrent = selectedPhase == snapshot.info.name
