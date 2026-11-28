@@ -7,6 +7,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
@@ -32,7 +34,7 @@ internal object RetrogradeTracker {
     private const val LOOKAHEAD_DAYS = 730L
 
     /** Curated station calendar keeps active dates and countdowns visible when the live feed is unreachable. */
-    fun fallbackFeed(warnings: List<String> = listOf("Built-in station calendar; event times are converted to your selected time zone.")): RetrogradeFeed =
+    fun fallbackFeed(warnings: List<String> = listOf("Live data is unavailable; showing station dates from the built-in calendar.")): RetrogradeFeed =
         RetrogradeFeed(knownEvents, System.currentTimeMillis(), warnings, builtInCalendar = true)
 
     private val knownEvents: List<RetrogradeEvent> by lazy {
@@ -43,7 +45,7 @@ internal object RetrogradeTracker {
             event("Uranus", "2026-09-10T18:40:00Z", "2027-02-08T12:24:00Z", "Gemini"),
             event("Neptune", "2026-07-07T11:21:00Z", "2026-12-12T22:13:00Z", "Aries"),
             event("Jupiter", "2026-12-13T00:59:00Z", "2027-04-13T02:13:00Z", "Leo"),
-            event("Chiron", "2026-09-17T00:00:00Z", "2027-01-06T00:00:00Z", "Taurus → Aries"),
+            event("Chiron", "2026-08-03T20:10:00Z", "2027-01-06T11:01:00Z", "Taurus → Aries"),
             event("Mars", "2027-01-10T13:01:00Z", "2027-04-01T14:10:00Z"),
             event("Mercury", "2027-02-09T17:36:00Z", "2027-03-03T12:35:00Z"),
             event("Pluto", "2027-05-08T12:15:00Z", "2027-10-18T03:51:00Z"),
@@ -91,13 +93,18 @@ internal object RetrogradeTracker {
 
         val start = LocalDate.now(ZoneId.of("UTC")).minusDays(LOOKBACK_DAYS)
         val stop = start.plusDays(LOOKBACK_DAYS + LOOKAHEAD_DAYS)
+        // Horizons' public API has a low request-rate allowance. Pace calls so a
+        // refresh does not fan out nine simultaneous requests and get throttled.
+        val requestLimiter = Semaphore(1)
         val results = coroutineScope {
             bodies.map { body ->
                 async {
-                    try {
-                        fetchPlanet(body, start, stop) to null
-                    } catch (error: Exception) {
-                        emptyList<RetrogradeEvent>() to "${body.name}: live data temporarily unavailable."
+                    requestLimiter.withPermit {
+                        try {
+                            fetchPlanet(body, start, stop) to null
+                        } catch (error: Exception) {
+                            emptyList<RetrogradeEvent>() to "${body.name}: using built-in station dates because live data could not be refreshed."
+                        }
                     }
                 }
             }.awaitAll()
@@ -106,10 +113,11 @@ internal object RetrogradeTracker {
         val warnings = results.mapNotNull { it.second }
         if (allEvents.isEmpty()) {
             if (cached != null) return@withContext cached.copy(warnings = listOf("Live refresh could not complete. Showing the last saved live station dates."))
-            return@withContext fallbackFeed(listOf("NASA/JPL live data could not be reached. Showing the built-in station calendar; verify dates with a current ephemeris before relying on them."))
+            return@withContext fallbackFeed(listOf("NASA/JPL could not refresh. Showing station dates from the built-in ephemeris calendar; tap Refresh dates to retry live data."))
         }
         val fetchedAt = System.currentTimeMillis()
-        val feed = RetrogradeFeed(allEvents, fetchedAt, warnings.map { it.substringBefore(":") + ": live data temporarily unavailable." })
+        // Keep curated dates for bodies whose request failed; refreshed live estimates replace matching periods.
+        val feed = RetrogradeFeed(mergeKnownEvents(allEvents), fetchedAt, warnings)
         prefs.edit().putLong(CACHE_TIME_KEY, fetchedAt).putString(CACHE_KEY, encodeFeed(feed)).apply()
         feed
     }
