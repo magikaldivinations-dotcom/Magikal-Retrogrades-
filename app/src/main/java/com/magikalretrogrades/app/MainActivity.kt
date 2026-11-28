@@ -362,23 +362,58 @@ private fun automaticSouthernHemisphere(): Boolean {
 @Composable
 private fun DisplayZonePicker(selectedId: String, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val zones = remember { java.util.TimeZone.getAvailableIDs().distinct().sorted() }
+    var query by remember { mutableStateOf("") }
+    val zones = remember { java.time.ZoneId.getAvailableZoneIds().sorted() }
+    val matches = remember(query, zones) {
+        val term = query.trim().replace(' ', '_')
+        if (term.isBlank()) emptyList()
+        else zones.filter { it.contains(term, ignoreCase = true) }.take(80)
+    }
     Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Text("DISPLAY TIME ZONE · LOCATION", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-        Box(Modifier.fillMaxWidth().padding(top = 5.dp)) {
-            Surface(color = PanelLight, shape = RoundedCornerShape(13.dp), modifier = Modifier.fillMaxWidth().clickable { expanded = true }) {
-                Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(selectedId.replace('_', ' '), color = Lilac, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("▾", color = Gold, fontSize = 18.sp)
-                }
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                zones.forEach { zone ->
-                    DropdownMenuItem(text = { Text(zone.replace('_', ' '), maxLines = 1) }, onClick = { onSelect(zone); expanded = false })
-                }
+        Surface(color = PanelLight, shape = RoundedCornerShape(13.dp), modifier = Modifier.fillMaxWidth().padding(top = 5.dp).clickable { expanded = true }) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(selectedId.replace('_', ' '), color = Lilac, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("▾", color = Gold, fontSize = 18.sp)
             }
         }
-        Text("Choose any region. Retrograde and Moon event times convert to this time zone in both hemispheres.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.padding(top = 4.dp))
+        Text("Search for a city or region to change displayed event times.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.padding(top = 4.dp))
+    }
+    if (expanded) {
+        AlertDialog(
+            onDismissRequest = { expanded = false; query = "" },
+            title = { Text("Choose display time zone", color = Lilac) },
+            text = {
+                Column(Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("Search city or region") },
+                        placeholder = { Text("Example: New York") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (query.isBlank()) {
+                        Text("Type a city or region name to find a time zone.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+                    } else if (matches.isEmpty()) {
+                        Text("No matching time zones.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+                    } else {
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 300.dp)) {
+                            items(items = matches, key = { it }) { zone ->
+                                DropdownMenuItem(
+                                    text = { Text(zone.replace('_', ' '), maxLines = 1) },
+                                    onClick = { onSelect(zone); query = ""; expanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { expanded = false; query = "" }) { Text("Done") }
+            },
+            containerColor = Panel
+        )
     }
 }
 
@@ -761,6 +796,22 @@ private fun MoonPage() {
                 val defaultLatitude = if (isSouthern) -35.0 else 35.0
                 val latitude = observerLocation?.latitude?.let { if (hemisphereMode == "Auto") it else kotlin.math.abs(it) * if (isSouthern) -1 else 1 } ?: defaultLatitude
                 val longitude = observerLocation?.longitude ?: 0.0
+                val moonSky by produceState<Pair<MoonPosition, MoonHorizon>?>(initialValue = null, latitude, longitude) {
+                    while (true) {
+                        val sampleTime = System.currentTimeMillis()
+                        val result = try {
+                            withContext(Dispatchers.Default) {
+                                moonPositionAt(sampleTime, latitude, longitude) to moonHorizon(sampleTime, latitude, longitude)
+                            }
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            null
+                        }
+                        if (result != null) value = result
+                        delay(5 * 60_000L)
+                    }
+                }
                 val viewAngle = moonBrightLimbAngle(currentTimeMillis, latitude, longitude)
                 Row(Modifier.fillMaxWidth().padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MoonOrb(snapshot.info.illumination, snapshot.info.name, Modifier.size(64.dp).graphicsLayer(rotationZ = viewAngle.toFloat()))
@@ -768,8 +819,7 @@ private fun MoonPage() {
                         Text(hemisphereName, color = Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Text(snapshot.info.name, color = Lilac, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
                         Text("${snapshot.info.illumination}% illuminated", color = Muted, fontSize = 10.sp)
-                        val zodiac = moonPositionAt(currentTimeMillis, latitude, longitude).zodiac
-                        Text("Moon in $zodiac", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text("Moon in ${moonSky?.first?.zodiac ?: "calculating…"}", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
                     }
                 }
                 val nextPhase = snapshot.upcoming.firstOrNull()
@@ -795,15 +845,18 @@ private fun MoonPage() {
                     Text(when { requestingLocation -> "Getting your device location…"; observerLocation == null -> "Use my location for local sky details"; else -> "Refresh local sky details" }, fontSize = 12.sp)
                 }
                 val location = observerLocation
-                if (location != null) {
-                    val moonNow = moonPositionAt(System.currentTimeMillis(), location.latitude, location.longitude)
-                    val horizon = moonHorizon(System.currentTimeMillis(), location.latitude, location.longitude)
+                val localSky = moonSky
+                if (location != null && localSky != null) {
+                    val moonNow = localSky.first
+                    val horizon = localSky.second
                     InfoLine("MOONRISE", horizon.riseMillis?.let { formatLocalEventTime(it, displayZone) } ?: "No rise in the next 48 hours")
                     InfoLine("MOONSET", horizon.setMillis?.let { formatLocalEventTime(it, displayZone) } ?: "No set in the next 48 hours")
                     if (horizon.transitMillis != null) InfoLine("MERIDIAN PASSING", "${formatLocalEventTime(horizon.transitMillis, displayZone)} · ${"%.0f".format(horizon.transitAltitude)}° altitude")
                     InfoLine("CURRENT ALTITUDE / AZIMUTH", "${"%.0f".format(moonNow.altitude)}° / ${"%.0f".format(moonNow.azimuth)}°")
                     InfoLine("DISTANCE", "${moonNow.distanceKm.toInt()} km")
                     InfoLine("TROPICAL ZODIAC", moonNow.zodiac)
+                } else if (location != null) {
+                    Text("Calculating local sky details…", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 7.dp))
                 } else {
                     Text("Optional location access adds approximate local moonrise, moonset, sky position, distance, and zodiac details.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 7.dp))
                 }
