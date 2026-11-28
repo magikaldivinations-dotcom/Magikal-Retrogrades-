@@ -88,7 +88,7 @@ internal object RetrogradeTracker {
         val cachedAt = prefs.getLong(CACHE_TIME_KEY, 0L)
         val cached = decodeFeed(prefs.getString(CACHE_KEY, null), cachedAt)
         if (!forceRefresh && cached != null && System.currentTimeMillis() - cachedAt < CACHE_TTL_MILLIS) {
-            return@withContext cached
+            return@withContext cached.copy(events = mergeKnownEvents(cached.events))
         }
 
         val start = LocalDate.now(ZoneId.of("UTC")).minusDays(LOOKBACK_DAYS)
@@ -112,7 +112,10 @@ internal object RetrogradeTracker {
         val allEvents = results.flatMap { it.first }
         val warnings = results.mapNotNull { it.second }
         if (allEvents.isEmpty()) {
-            if (cached != null) return@withContext cached.copy(warnings = listOf("Live refresh could not complete. Showing the last saved live station dates."))
+            if (cached != null) return@withContext cached.copy(
+                events = mergeKnownEvents(cached.events),
+                warnings = listOf("Live refresh could not complete. Showing saved dates with built-in station dates filling any missing bodies.")
+            )
             return@withContext fallbackFeed(listOf("NASA/JPL could not refresh. Showing station dates from the built-in ephemeris calendar; tap Refresh dates to retry live data."))
         }
         val fetchedAt = System.currentTimeMillis()
