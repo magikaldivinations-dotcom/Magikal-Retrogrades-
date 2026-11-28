@@ -95,7 +95,7 @@ internal object RetrogradeTracker {
         val stop = start.plusDays(LOOKBACK_DAYS + LOOKAHEAD_DAYS)
         // Horizons' public API has a low request-rate allowance. Pace calls so a
         // refresh does not fan out nine simultaneous requests and get throttled.
-        val requestLimiter = Semaphore(1)
+        val requestLimiter = Semaphore(2)
         val results = coroutineScope {
             bodies.map { body ->
                 async {
