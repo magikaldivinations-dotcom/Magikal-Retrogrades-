@@ -126,9 +126,18 @@ internal fun NatalChartPage() {
     var calculating by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var chart by remember { mutableStateOf<NatalChartData?>(null) }
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(chart) {
+        if (chart != null) {
+            // Wait for the results section to enter the layout before scrolling.
+            withFrameNanos { }
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
 
     Column(
-        Modifier.fillMaxSize().background(ChartInk).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 16.dp),
+        Modifier.fillMaxSize().background(ChartInk).verticalScroll(scrollState).padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
