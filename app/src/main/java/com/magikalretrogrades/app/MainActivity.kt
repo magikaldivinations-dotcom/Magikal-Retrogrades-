@@ -447,18 +447,21 @@ private fun RetrogradesPage() {
     }
     PageColumn {
         SectionIntro("Planetary retrogrades", "Explore each planet's symbolism and reflective practices.")
-        InfoCard("LIVE PLANET TRACKER", "Geocentric positions come from NASA/JPL Horizons when the app refreshes. Results are cached for up to 12 hours. Station times are estimates interpolated from two-day samples and are shown in your device's local time.")
+        InfoCard("LIVE PLANET TRACKER", "NASA/JPL Horizons estimates geocentric motion when you refresh. Results are cached for up to 12 hours. Station times are interpolated from two-day samples and shown in your selected local time zone. If a body cannot refresh, its built-in station dates remain available.")
         when {
             loading -> InfoCard("UPDATING THE SKY", "Fetching planetary positions from NASA/JPL Horizons…")
             error != null -> InfoCard("TRACKING TEMPORARILY UNAVAILABLE", "${error}. Tap Refresh dates to try again. Your guide content is still available offline.")
             feed != null -> {
                 if (feed!!.builtInCalendar) {
-                    InfoCard("BUILT-IN STATION CALENDAR", "Live NASA/JPL data is unavailable. These preloaded station dates are a guide; check a current ephemeris for confirmation.")
+                    InfoCard("BUILT-IN STATION CALENDAR", "Live refresh is unavailable. Showing station dates from the app's built-in ephemeris calendar; tap Refresh dates to try again.")
                 } else {
                     val updated = formatLocalEventTime(feed!!.fetchedAtMillis, displayZone)
-                    InfoCard("NASA/JPL DATA UPDATED", "Latest snapshot: $updated. The live forecast uses two-day position samples with interpolated station times. Only live results are shown when the feed responds; some planets can be missing if their request fails.")
+                    InfoCard("NASA/JPL DATA UPDATED", "Latest refresh: $updated. Station times are estimates interpolated from two-day samples. The built-in station calendar fills any body whose live request fails.")
                 }
-                if (feed!!.warnings.isNotEmpty()) InfoCard("LIVE DATA NOTICE", feed!!.warnings.joinToString(" · "))
+                if (feed!!.warnings.isNotEmpty()) {
+                    val affectedBodies = feed!!.warnings.map { it.substringBefore(":") }.distinct().joinToString(", ")
+                    InfoCard("LIVE DATA NOTICE", "Live refresh failed for $affectedBodies. Station dates for those bodies are shown from the built-in calendar. Tap Refresh dates to retry.")
+                }
             }
         }
         val activeNow = feed?.events.orEmpty().filter { it.startUtcMillis <= nowMillis && it.endUtcMillis > nowMillis }.sortedBy { it.startUtcMillis }
